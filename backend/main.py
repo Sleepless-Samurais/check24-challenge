@@ -1,4 +1,4 @@
-import json
+import orjson as json
 import os
 
 import asyncpg  # type: ignore
@@ -9,7 +9,7 @@ from models import Offer, OfferRequest, Offers
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 with open("region_array.json", "rt") as fin:
-    region_dict = json.load(fin)
+    region_dict = json.loads(fin.read())
 
 
 async def get_db_connection():

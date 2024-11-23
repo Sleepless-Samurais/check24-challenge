@@ -75,12 +75,6 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
     filter_query = " WHERE " + " AND ".join(filters)
 
-    # Order
-    if query.sortOrder == "price-asc":
-        order = "ORDER BY price"
-    else:
-        order = "ORDER BY price DESC"
-
     # Page size
     paging_query = "LIMIT {} OFFSET {}"
     paging_params = []
@@ -92,27 +86,34 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         # Offers
         filter_clause = filter_query.format(*filter_params)
         paging_clause = paging_query.format(*paging_params)
-        offer_query = " ".join(
-            (
-                "SELECT id AS ID, data FROM rental_data",
-                filter_clause,
-                order,
-                paging_clause,
-            )
+
+        page_query = f"""
+        WITH Page AS (
+            SELECT * FROM rental_data
+            {filter_clause}
+            {paging_clause}
         )
+        """
+
+        # Order
+        if query.sortOrder == "price-asc":
+            order = "ORDER BY price"
+        else:
+            order = "ORDER BY price DESC"
+
+        offer_query = f"{page_query} SELECT id AS ID, data FROM page {order}"
         rows = await conn.fetch(offer_query)
         offers = [dict(row) for row in rows]
-        print(offers)
 
         # Price range
         price_query = f"""
-        WITH PriceBuckets AS (
+        {page_query},
+        PriceBuckets AS (
             SELECT
                 CAST(FLOOR(price / $1) AS INTEGER) * $1 AS rangeStart,
                 CAST(FLOOR(price / $1) AS INTEGER) * $1 + $1 AS rangeEnd
             FROM
-                rental_data
-            {filter_clause}
+                Page
         )
         SELECT
             rangeStart AS start,
@@ -122,6 +123,8 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             PriceBuckets
         GROUP BY
             rangeStart, rangeEnd
+        ORDER BY
+            rangeStart
         """
 
         rows = await conn.fetch(price_query, query.priceRangeWidth)
@@ -129,12 +132,12 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
         # car type counts
         car_type_query = f"""
+        {page_query}
         SELECT
             car_type,
             COUNT(*) AS count
         FROM
-            rental_data
-        {filter_clause}
+            Page
         GROUP BY
             car_type
         """
@@ -143,12 +146,12 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
         # number seats
         num_seats_query = f"""
+        {page_query}
         SELECT
             number_seats,
             COUNT(*) AS count
         FROM
-            rental_data
-        {filter_clause}
+            Page
         GROUP BY
             number_seats
         """
@@ -157,15 +160,15 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
         # free km range
         free_km_query = f"""
-        WITH KilometerBuckets AS (
+        {page_query},
+        KilometerBuckets AS (
             SELECT
                 CAST(FLOOR(free_kilometers / $1) AS INTEGER) * $1
                     AS rangeStart,
                 CAST(FLOOR(free_kilometers / $1) AS INTEGER) * $1 + $1
                     AS rangeEnd
             FROM
-                rental_data
-            {filter_clause}
+                Page
         )
         SELECT
             rangeStart AS start,
@@ -175,23 +178,26 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             KilometerBuckets
         GROUP BY
             rangeStart, rangeEnd
+        ORDER BY
+            rangeStart
         """
         rows = await conn.fetch(free_km_query, query.minFreeKilometerWidth)
         free_km = [dict(row) for row in rows]
 
         vollkasko_query = f"""
+        {page_query}
         SELECT
             has_vollkasko,
             COUNT(*) AS count
         FROM
-            rental_data
-        {filter_clause}
+            Page
         GROUP BY
             has_vollkasko
         ORDER BY
             has_vollkasko
         """
-        rows = dict(await conn.fetch(vollkasko_query))
+        print(vollkasko_query)
+        dict(await conn.fetch(vollkasko_query))
         vollkasko = {"trueCount": rows[1], "falseCount": rows[0]}
 
     except Exception as e:

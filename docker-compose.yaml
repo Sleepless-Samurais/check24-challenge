@@ -20,6 +20,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
+      POSTGRES_EXTRA_CONFIG: "shared_buffers=2GB"
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 

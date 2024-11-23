@@ -101,10 +101,8 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             WHERE has_vollkasko = true
         ) src;
         """
-        print(vollkasko_query)
         true_count = await conn.fetchval(vollkasko_query)
         vollkasko = {"trueCount": true_count, "falseCount": len(offers) - true_count}
-        print(true_count, len(offers), vollkasko)
 
         # Price range
         price_query = f"""
@@ -193,6 +191,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         free_km = [dict(row) for row in rows]
 
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         await conn.close()
@@ -248,6 +247,7 @@ async def create_offers(offers: Request) -> None:
         conn = await get_db_connection()
         await conn.executemany(query, entries)
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         await conn.close()
@@ -261,6 +261,7 @@ async def cleanup() -> None:
     try:
         await conn.execute(query)
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         await conn.close()

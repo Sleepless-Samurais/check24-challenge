@@ -38,8 +38,8 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
     #     filter_params.append(min_r)
 
     # Time
-    filters.append("start_date >= TO_TIMESTAMP($?)")
-    filters.append("end_date <= TO_TIMESTAMP($?)")
+    filters.append("start_date >= TO_TIMESTAMP({})")
+    filters.append("end_date <= TO_TIMESTAMP({})")
     filter_params.append(query.timeRangeStart // 1000)
     filter_params.append(query.timeRangeEnd // 1000)
 
@@ -48,20 +48,20 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
     # Num of seats
     if query.minNumberSeats:
-        filters.append("number_seats >= $?")
+        filters.append("number_seats >= {}")
         filter_params.append(query.minNumberSeats)
 
     # price
     if query.minPrice:
-        filters.append("price >= $?")
+        filters.append("price >= {}")
         filter_params.append(query.minPrice)
     if query.maxPrice:
-        filters.append("price <= $?")
+        filters.append("price <= {}")
         filter_params.append(query.maxPrice)
 
     # car type
     if query.carType:
-        filters.append("car_type = $?")
+        filters.append("car_type = {}")
         filter_params.append(query.carType)
 
     # vollkasko
@@ -70,7 +70,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
     # min free km
     if query.minFreeKilometer:
-        filters.append("free_kilometers >= $?")
+        filters.append("free_kilometers >= {}")
         filter_params.append(query.minFreeKilometer)
 
     filter_query = " WHERE " + " AND ".join(filters)
@@ -82,7 +82,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         order = "ORDER BY price DESC"
 
     # Page size
-    paging_query = "LIMIT $? OFFSET $?"
+    paging_query = "LIMIT {} OFFSET {}"
     paging_params = []
     paging_params.append(query.pageSize)
     paging_params.append(query.page)
@@ -90,29 +90,29 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
     conn = await get_db_connection()
     try:
         # Offers
+        filter_clause = filter_query.format(*filter_params)
+        paging_clause = paging_query.format(*paging_params)
         offer_query = " ".join(
             (
                 "SELECT id AS ID, data FROM rental_data",
-                filter_query,
+                filter_clause,
                 order,
-                paging_query,
+                paging_clause,
             )
         )
-        offer_params = filter_params + paging_params
-        for i in range(1, len(offer_params) + 1):
-            offer_query = offer_query.replace("$?", f"${i}", 1)
-        rows = await conn.fetch(offer_query, *offer_params)
+        rows = await conn.fetch(offer_query)
         offers = [dict(row) for row in rows]
         print(offers)
 
         # Price range
-        price_query = """
+        price_query = f"""
         WITH PriceBuckets AS (
             SELECT
                 CAST(FLOOR(price / $1) AS INTEGER) * $1 AS rangeStart,
                 CAST(FLOOR(price / $1) AS INTEGER) * $1 + $1 AS rangeEnd
             FROM
                 rental_data
+            {filter_clause}
         )
         SELECT
             rangeStart AS start,
@@ -128,12 +128,13 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         price_buckets = [dict(row) for row in rows]
 
         # car type counts
-        car_type_query = """
+        car_type_query = f"""
         SELECT
             car_type,
             COUNT(*) AS count
         FROM
             rental_data
+        {filter_clause}
         GROUP BY
             car_type
         """
@@ -141,12 +142,13 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         car_type_buckets = {row["car_type"]: row["count"] for row in rows}
 
         # number seats
-        num_seats_query = """
+        num_seats_query = f"""
         SELECT
             number_seats,
             COUNT(*) AS count
         FROM
             rental_data
+        {filter_clause}
         GROUP BY
             number_seats
         """
@@ -154,7 +156,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         num_seats = [dict(row) for row in rows]
 
         # free km range
-        free_km_query = """
+        free_km_query = f"""
         WITH KilometerBuckets AS (
             SELECT
                 CAST(FLOOR(free_kilometers / $1) AS INTEGER) * $1
@@ -163,6 +165,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
                     AS rangeEnd
             FROM
                 rental_data
+            {filter_clause}
         )
         SELECT
             rangeStart AS start,
@@ -176,12 +179,13 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         rows = await conn.fetch(free_km_query, query.minFreeKilometerWidth)
         free_km = [dict(row) for row in rows]
 
-        vollkasko_query = """
+        vollkasko_query = f"""
         SELECT
             has_vollkasko,
             COUNT(*) AS count
         FROM
             rental_data
+        {filter_clause}
         GROUP BY
             has_vollkasko
         ORDER BY

@@ -13,9 +13,16 @@ with open("region_array.json", "rt") as fin:
     region_dict = json.load(fin)
 
 
-app = FastAPI()
-conn = asyncio.run(asyncpg.connect(DATABASE_URL))
+conn = None
+async def get_db_connection():
+    global conn
+    if conn:
+        return conn
+    conn = await asyncpg.create_pool(DATABASE_URL)
+    return conn
 
+
+app = FastAPI()
 
 @app.get("/api/offers")
 async def get_offers(query: OfferRequest = Query()) -> dict:
@@ -69,6 +76,8 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
     # Page size
     paging_query = f"LIMIT {query.pageSize} OFFSET {query.page}"
+
+    conn = await get_db_connection()
 
     try:
         # Offers

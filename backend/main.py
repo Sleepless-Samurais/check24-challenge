@@ -1,13 +1,8 @@
 import json
 import os
 
-<<<<<<< HEAD
-import asyncpg
-from fastapi import FastAPI, HTTPException
-=======
 import asyncpg  # type: ignore
 from fastapi import FastAPI, HTTPException, Query
->>>>>>> 55460a8 (Taiki did something which can work)
 
 from models import Offer, OfferRequest, Offers
 
@@ -103,10 +98,6 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
                 paging_query,
             )
         )
-<<<<<<< HEAD
-        params = {}
-        offers = await conn.fetch(query, params)
-=======
         offer_params = filter_params + paging_params
         for i in range(1, len(offer_params) + 1):
             offer_query = offer_query.replace("$?", f"${i}", 1)
@@ -196,7 +187,6 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         """
         rows = dict(await conn.fetch(vollkasko_query))
         vollkasko = {"trueCount": rows[1], "falseCount": rows[0]}
->>>>>>> 55460a8 (Taiki did something which can work)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")

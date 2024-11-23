@@ -13,13 +13,8 @@ with open("region_array.json", "rt") as fin:
     region_dict = json.load(fin)
 
 
-conn = None
 async def get_db_connection():
-    global conn
-    if conn:
-        return conn
-    conn = await asyncpg.create_pool(DATABASE_URL)
-    return conn
+    return await asyncpg.create_pool(DATABASE_URL)
 
 
 app = FastAPI()
@@ -97,7 +92,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
             offer_query = f"""{page_query} SELECT id AS ID, data FROM page {order}"""
 
-            rows = await conn.fetch(offer_query)
+            rows = await (await conn.acquire()).fetch(offer_query)
             return [dict(row) for row in rows]
         offers = get_offers()
 
@@ -125,7 +120,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             ORDER BY
                 rangeStart
             """
-            rows = await conn.fetch(price_query)
+            rows = await (await conn.acquire()).fetch(price_query)
             return [dict(row) for row in rows]
         price_buckets = get_price_range()
 
@@ -140,7 +135,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             GROUP BY
                 car_type
             """
-            rows = await conn.fetch(car_type_query)
+            rows = await (await conn.acquire()).fetch(car_type_query)
             return {row["car_type"]: row["count"] for row in rows}
         car_type_buckets = get_car_type()
 
@@ -155,7 +150,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             GROUP BY
                 number_seats
             """
-            rows = await conn.fetch(num_seats_query)
+            rows = await (await conn.acquire()).fetch(num_seats_query)
             return [
                 {"numberSeats": row["number_seats"], "count": row["count"]} for row in rows
             ]
@@ -187,7 +182,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             ORDER BY
                 rangeStart
             """
-            rows = await conn.fetch(free_km_query)
+            rows = await (await conn.acquire()).fetch(free_km_query)
             return [dict(row) for row in rows]
         free_km = get_free_km()
 
@@ -200,7 +195,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
                 WHERE has_vollkasko = true
             ) src;
             """
-            true_count = await conn.fetchval(vollkasko_query)
+            true_count = await (await conn.acquire()).fetchval(vollkasko_query)
             return {"trueCount": true_count, "falseCount": len(await offers) - true_count}
         vollkasko = get_vollkasko()
 

@@ -86,6 +86,8 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             order = "ORDER BY price DESC"
 
         offer_query = f"{page_query} SELECT id AS ID, data FROM page {order}"
+
+        print(offer_query)
         rows = await conn.fetch(offer_query)
         offers = [dict(row) for row in rows]
 
@@ -113,7 +115,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         ORDER BY
             rangeStart
         """
-
+        print(price_query)
         rows = await conn.fetch(price_query)
         price_buckets = [dict(row) for row in rows]
 
@@ -128,6 +130,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         GROUP BY
             car_type
         """
+        print(car_type_query)
         rows = await conn.fetch(car_type_query)
         car_type_buckets = {row["car_type"]: row["count"] for row in rows}
 
@@ -142,6 +145,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         GROUP BY
             number_seats
         """
+        print(num_seats_query)
         rows = await conn.fetch(num_seats_query)
         num_seats = [dict(row) for row in rows]
 
@@ -171,23 +175,21 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         ORDER BY
             rangeStart
         """
+        print(free_km_query)
         rows = await conn.fetch(free_km_query)
         free_km = [dict(row) for row in rows]
 
         vollkasko_query = f"""
         {page_query}
         SELECT
-            has_vollkasko,
             COUNT(*) AS count
         FROM
             Page
-        GROUP BY
-            has_vollkasko
-        ORDER BY
-            has_vollkasko
+        WHERE
+            has_vollkasko = TRUE
         """
-        rows = dict(await conn.fetch(vollkasko_query))
-        vollkasko = {"trueCount": rows[1], "falseCount": rows[0]}
+        true_count = await conn.fetchval(vollkasko_query)
+        vollkasko = {"trueCount": true_count, "falseCount": len(free_km) - true_count}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")

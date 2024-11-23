@@ -180,7 +180,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         SELECT COUNT(*) FROM (
             SELECT * FROM {page_query}
             WHERE has_vollkasko = true
-        )
+        ) src;
         """
         print(vollkasko_query)
         true_count = await conn.fetchval(vollkasko_query)

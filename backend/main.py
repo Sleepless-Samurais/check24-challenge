@@ -99,7 +99,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         """
         print(vollkasko_query)
         true_count = await conn.fetchval(vollkasko_query)
-        vollkasko = {"trueCount": 0, "falseCount": 0}
+        vollkasko = {"trueCount": true_count, "falseCount": len(offers) - true_count}
         print(true_count, len(offers), vollkasko)
 
         # Price range
@@ -199,7 +199,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         "carTypeCounts": car_type_buckets,
         "seatsCount": num_seats,
         "freeKilometerRange": free_km,
-        "vollkaskoCounts": vollkasko,
+        "vollkaskoCounts": {"trueCount": true_count, "falseCount": len(offers) - true_count},
     }
 
 

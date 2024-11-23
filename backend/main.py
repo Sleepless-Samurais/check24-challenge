@@ -94,10 +94,10 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         {page_query},
         PriceBuckets AS (
             SELECT
-                CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)\
+                CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)
                         * {query.priceRangeWidth} AS rangeStart,
-                CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)\
-                        * {query.priceRangeWidth} + {query.priceRangeWidth}\
+                CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)
+                        * {query.priceRangeWidth} + {query.priceRangeWidth}
                         AS rangeEnd
             FROM
                 Page
@@ -150,11 +150,11 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         {page_query},
         KilometerBuckets AS (
             SELECT
-                CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})\
+                CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})
                         AS INTEGER) * {query.minFreeKilometerWidth}
-                    AS rangeStart,
-                CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})\
-                        AS INTEGER) * {query.minFreeKilometerWidth}\
+                        AS rangeStart,
+                CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})
+                        AS INTEGER) * {query.minFreeKilometerWidth}
                         + {query.minFreeKilometerWidth}
                     AS rangeEnd
             FROM

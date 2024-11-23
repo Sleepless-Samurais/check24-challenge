@@ -25,14 +25,15 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
     filters: list[str] = []
 
     # Region ID
-    min_r, max_r = map(int, region_dict[str(query.regionID)])
-    if min_r != max_r:
-        filters.append(
-            f"most_specific_region_id >= {min_r} \
-                    AND most_specific_region_id <= {max_r}"
-        )
-    else:
-        filters.append(f"most_specific_region_id = {min_r}")
+    for r in region_dict[str(query.regionID)]:
+        min_r, max_r = map(int, r)
+        if min_r != max_r:
+            filters.append(
+                f"most_specific_region_id >= {min_r} \
+                        AND most_specific_region_id <= {max_r}"
+            )
+        else:
+            filters.append(f"most_specific_region_id = {min_r}")
 
     # Time
     filters.append(f"EXTRACT(EPOCH FROM start_date) >= {query.timeRangeStart // 1000}")
@@ -89,7 +90,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
         rows = await conn.fetch(offer_query)
         offers = [dict(row) for row in rows]
-        
+
         vollkasko_query = f"""
         {page_query}
         SELECT COUNT(*) FROM (

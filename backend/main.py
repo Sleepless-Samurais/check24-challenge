@@ -138,7 +138,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             car_type
         """
         rows = await conn.fetch(car_type_query)
-        car_type_buckets = [dict(row) for row in rows]
+        car_type_buckets = {row["car_type"]: row["count"] for row in rows}
 
         # number seats
         num_seats_query = """

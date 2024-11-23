@@ -171,7 +171,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         ORDER BY
             rangeStart
         """
-        rows = await conn.fetch(free_km_query, query.minFreeKilometerWidth)
+        rows = await conn.fetch(free_km_query)
         free_km = [dict(row) for row in rows]
 
         vollkasko_query = f"""

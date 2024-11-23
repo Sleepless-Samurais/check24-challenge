@@ -1,22 +1,6 @@
 import requests
 import time
-
-url = "http://backend:80/api/offers"
-
-
-# if __name__ == "__main__":
-#     # Wait to ensure the server is up and running
-#     time.sleep(5)
-#     print("Starting")
-#     for i in range(3):
-#         print(f"{i} of 3:")
-#         response = requests.get(url)
-#         subprocess.run(["echo", response.text])
-#         time.sleep(5)
-
 import json
-import requests
-import time
 import threading
 import subprocess
 
@@ -54,6 +38,12 @@ for req in requests_list:
     delay_ns = timestamp - base_timestamp
     delay_s = delay_ns / 1e9  # Convert nanoseconds to seconds
     scheduled_requests.append({"delay": delay_s, "request": req})
+subprocess.run(
+    [
+        "echo",
+        str(scheduled_requests),
+    ]
+)
 
 
 # Function to send the request

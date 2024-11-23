@@ -180,10 +180,10 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         {page_query}
         SELECT
             COUNT(*) AS count
-        FROM
-            Page
         WHERE
             has_vollkasko = TRUE
+        FROM
+            Page
         """
         print(vollkasko_query)
         true_count = await conn.fetchval(vollkasko_query)

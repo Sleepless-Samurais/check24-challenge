@@ -11,6 +11,6 @@ CREATE TABLE rental_data (
     free_kilometers INTEGER NOT NULL
 );
 
-CREATE INDEX salary_index ON rental_data (start_date, end_date);
-CREATE INDEX salary_index ON rental_data (most_specific_region_id);
-CREATE INDEX salary_index ON rental_data (free_kilometers);
+CREATE INDEX date_index ON rental_data (start_date, end_date);
+CREATE INDEX region_index ON rental_data (most_specific_region_id);
+CREATE INDEX kilo_index ON rental_data (free_kilometers);

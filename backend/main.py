@@ -11,12 +11,24 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 with open("region_array.json", "rt") as fin:
     region_dict = json.loads(fin.read())
 
-
-async def get_db_connection():
-    return await asyncpg.connect(DATABASE_URL)
-
-
 app = FastAPI()
+
+pool: asyncpg.Pool | None = None
+
+
+@app.on_event("startup")
+async def startup():
+    global pool
+    # Initialize the connection pool during the application startup
+    pool = await asyncpg.create_pool(DATABASE_URL, min_size=5, max_size=20)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    global pool
+    # Close the connection pool during the application shutdown
+    if pool:
+        await pool.close()
 
 
 @app.get("/api/offers")
@@ -85,8 +97,6 @@ async def get_offers(query: OfferRequest = Query()):
         order_clause = "ORDER BY price, id"
     else:
         order_clause = "ORDER BY price DESC, id DESC"
-
-    conn = await get_db_connection()
 
     pg_query = f"""
     WITH Page AS (
@@ -190,13 +200,12 @@ async def get_offers(query: OfferRequest = Query()):
     ) AS result
     """
 
-    try:
-        row = await conn.fetchrow(pg_query)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        await conn.close()
+    global pool
+    async with pool.acquire() as conn:
+        try:
+            row = await conn.fetchrow(pg_query)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
     return Response(content=row["result"], media_type="application/json")
 
@@ -240,23 +249,21 @@ async def create_offers(req: Request) -> None:
         for offer in offers["offers"]
     )
 
-    conn = await get_db_connection()
-    try:
-        await conn.executemany(query, entries)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        await conn.close()
+    global pool
+    async with pool.acquire() as conn:
+        try:
+            await conn.executemany(query, entries)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
 
 @app.delete("/api/offers")
 async def cleanup() -> None:
     query = "DELETE FROM rental_data"
 
-    conn = await get_db_connection()
-    try:
-        await conn.execute(query)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        await conn.close()
+    global pool
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute(query)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {e}")

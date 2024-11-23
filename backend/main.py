@@ -22,47 +22,38 @@ app = FastAPI()
 @app.get("/api/offers")
 async def get_offers(query: OfferRequest = Query()) -> dict:
 
-    filters: list[int | str] = []
-    filter_params: list[int | float | str] = []
+    filters: list[str] = []
 
     # Region ID
     min_r, max_r = map(int, region_dict[str(query.regionID)])
     if min_r != max_r:
         filters.append(
-            "most_specific_region_id >= $? AND most_specific_region_id <= $?"
+            f"most_specific_region_id >= {min_r} \
+                    AND most_specific_region_id <= {max_r}"
         )
-        filter_params.append(min_r)
-        filter_params.append(max_r)
     else:
-        filters.append("most_specific_region_id = $?")
-        filter_params.append(min_r)
+        filters.append(f"most_specific_region_id = {min_r}")
 
     # Time
-    filters.append("start_date >= TO_TIMESTAMP({})")
-    filters.append("end_date <= TO_TIMESTAMP({})")
-    filter_params.append(query.timeRangeStart // 1000)
-    filter_params.append(query.timeRangeEnd // 1000)
+    filters.append("start_date >= TO_TIMESTAMP({query.timeRangeStart // 1000})")
+    filters.append("end_date <= TO_TIMESTAMP({query.timeRangeEnd // 1000})")
 
     # Days
     filters.append(f"(end_date - start_date) >= INTERVAL '{query.numberDays} days'")
 
     # Num of seats
     if query.minNumberSeats:
-        filters.append("number_seats >= {}")
-        filter_params.append(query.minNumberSeats)
+        filters.append(f"number_seats >= {query.minNumberSeats}")
 
     # price
     if query.minPrice:
-        filters.append("price >= {}")
-        filter_params.append(query.minPrice)
+        filters.append(f"price >= {query.minPrice}")
     if query.maxPrice:
-        filters.append("price <= {}")
-        filter_params.append(query.maxPrice)
+        filters.append(f"price <= {query.maxPrice}")
 
     # car type
     if query.carType:
-        filters.append("car_type = {}")
-        filter_params.append(query.carType)
+        filters.append(f"car_type = {query.carType}")
 
     # vollkasko
     if query.onlyVollkasko:
@@ -70,28 +61,21 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
     # min free km
     if query.minFreeKilometer:
-        filters.append("free_kilometers >= {}")
-        filter_params.append(query.minFreeKilometer)
+        filters.append(f"free_kilometers >= {query.minFreeKilometer}")
 
     filter_query = " WHERE " + " AND ".join(filters)
 
     # Page size
-    paging_query = "LIMIT {} OFFSET {}"
-    paging_params = []
-    paging_params.append(query.pageSize)
-    paging_params.append(query.page)
+    paging_query = f"LIMIT {query.pageSize} OFFSET {query.page}"
 
     conn = await get_db_connection()
     try:
         # Offers
-        filter_clause = filter_query.format(*filter_params)
-        paging_clause = paging_query.format(*paging_params)
-
         page_query = f"""
         WITH Page AS (
             SELECT * FROM rental_data
-            {filter_clause}
-            {paging_clause}
+            {filter_query}
+            {paging_query}
         )
         """
 
@@ -110,8 +94,11 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         {page_query},
         PriceBuckets AS (
             SELECT
-                CAST(FLOOR(price / $1) AS INTEGER) * $1 AS rangeStart,
-                CAST(FLOOR(price / $1) AS INTEGER) * $1 + $1 AS rangeEnd
+                CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)\
+                        * {query.priceRangeWidth} AS rangeStart,
+                CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)\
+                        * {query.priceRangeWidth} + {query.priceRangeWidth}\
+                        AS rangeEnd
             FROM
                 Page
         )
@@ -127,7 +114,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             rangeStart
         """
 
-        rows = await conn.fetch(price_query, query.priceRangeWidth)
+        rows = await conn.fetch(price_query)
         price_buckets = [dict(row) for row in rows]
 
         # car type counts
@@ -163,9 +150,12 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         {page_query},
         KilometerBuckets AS (
             SELECT
-                CAST(FLOOR(free_kilometers / $1) AS INTEGER) * $1
+                CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})\
+                        AS INTEGER) * {query.minFreeKilometerWidth}
                     AS rangeStart,
-                CAST(FLOOR(free_kilometers / $1) AS INTEGER) * $1 + $1
+                CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})\
+                        AS INTEGER) * {query.minFreeKilometerWidth}\
+                        + {query.minFreeKilometerWidth}
                     AS rangeEnd
             FROM
                 Page

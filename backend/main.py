@@ -11,6 +11,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 with open("region_array.json", "rt") as fin:
     region_dict = json.load(fin)
 
+pool: asyncpg.Pool = None
 
 async def get_db_connection():
     return await asyncpg.connect(DATABASE_URL)
@@ -18,6 +19,16 @@ async def get_db_connection():
 
 app = FastAPI()
 
+# Initialize the connection pool on app startup
+@app.on_event("startup")
+async def startup():
+    global pool
+    pool = await asyncpg.create_pool(**DB_CONFIG)
+
+# Close the connection pool on app shutdown
+@app.on_event("shutdown")
+async def shutdown():
+    await pool.close()
 
 @app.get("/api/offers")
 async def get_offers(query: OfferRequest = Query()) -> dict:
@@ -73,129 +84,128 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
     paging_query = f"LIMIT {query.pageSize} OFFSET {query.page}"
 
     conn = await get_db_connection()
-    try:
-        # Offers
-        page_query = f"""
-        WITH Page AS (
-            SELECT * FROM rental_data
-            {filter_query}
-            {paging_query}
-        )
-        """
+    async with pool.acquire() as conn:
+        try:
+            # Offers
+            page_query = f"""
+            WITH Page AS (
+                SELECT * FROM rental_data
+                {filter_query}
+                {paging_query}
+            )
+            """
 
-        # Order
-        if query.sortOrder == "price-asc":
-            order = "ORDER BY price, id"
-        else:
-            order = "ORDER BY price DESC, id DESC"
+            # Order
+            if query.sortOrder == "price-asc":
+                order = "ORDER BY price, id"
+            else:
+                order = "ORDER BY price DESC, id DESC"
 
-        offer_query = f"""{page_query} SELECT id AS ID, data FROM page {order}"""
+            offer_query = f"""{page_query} SELECT id AS ID, data FROM page {order}"""
 
-        rows = await conn.fetch(offer_query)
-        offers = [dict(row) for row in rows]
+            rows = await conn.fetch(offer_query)
+            offers = [dict(row) for row in rows]
 
-        vollkasko_query = f"""
-        {page_query}
-        SELECT COUNT(*) FROM (
-            SELECT * FROM Page
-            WHERE has_vollkasko = true
-        ) src;
-        """
-        print(vollkasko_query)
-        true_count = await conn.fetchval(vollkasko_query)
-        vollkasko = {"trueCount": true_count, "falseCount": len(offers) - true_count}
-        print(true_count, len(offers), vollkasko)
+            vollkasko_query = f"""
+            {page_query}
+            SELECT COUNT(*) FROM (
+                SELECT * FROM Page
+                WHERE has_vollkasko = true
+            ) src;
+            """
+            print(vollkasko_query)
+            true_count = await conn.fetchval(vollkasko_query)
+            vollkasko = {"trueCount": true_count, "falseCount": len(offers) - true_count}
+            print(true_count, len(offers), vollkasko)
 
-        # Price range
-        price_query = f"""
-        {page_query},
-        PriceBuckets AS (
+            # Price range
+            price_query = f"""
+            {page_query},
+            PriceBuckets AS (
+                SELECT
+                    CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)
+                            * {query.priceRangeWidth} AS rangeStart,
+                    CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)
+                            * {query.priceRangeWidth} + {query.priceRangeWidth}
+                            AS rangeEnd
+                FROM
+                    Page
+            )
             SELECT
-                CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)
-                        * {query.priceRangeWidth} AS rangeStart,
-                CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)
-                        * {query.priceRangeWidth} + {query.priceRangeWidth}
+                rangeStart AS start,
+                rangeEnd AS end,
+                COUNT(*) AS count
+            FROM
+                PriceBuckets
+            GROUP BY
+                rangeStart, rangeEnd
+            ORDER BY
+                rangeStart
+            """
+            rows = await conn.fetch(price_query)
+            price_buckets = [dict(row) for row in rows]
+
+            # car type counts
+            car_type_query = f"""
+            {page_query}
+            SELECT
+                car_type,
+                COUNT(*) AS count
+            FROM
+                Page
+            GROUP BY
+                car_type
+            """
+            rows = await conn.fetch(car_type_query)
+            car_type_buckets = {row["car_type"]: row["count"] for row in rows}
+
+            # number seats
+            num_seats_query = f"""
+            {page_query}
+            SELECT
+                number_seats,
+                COUNT(*) AS count
+            FROM
+                Page
+            GROUP BY
+                number_seats
+            """
+            rows = await conn.fetch(num_seats_query)
+            num_seats = [
+                {"numberSeats": row["number_seats"], "count": row["count"]} for row in rows
+            ]
+
+            # free km range
+            free_km_query = f"""
+            {page_query},
+            KilometerBuckets AS (
+                SELECT
+                    CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})
+                            AS INTEGER) * {query.minFreeKilometerWidth}
+                            AS rangeStart,
+                    CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})
+                            AS INTEGER) * {query.minFreeKilometerWidth}
+                            + {query.minFreeKilometerWidth}
                         AS rangeEnd
-            FROM
-                Page
-        )
-        SELECT
-            rangeStart AS start,
-            rangeEnd AS end,
-            COUNT(*) AS count
-        FROM
-            PriceBuckets
-        GROUP BY
-            rangeStart, rangeEnd
-        ORDER BY
-            rangeStart
-        """
-        rows = await conn.fetch(price_query)
-        price_buckets = [dict(row) for row in rows]
-
-        # car type counts
-        car_type_query = f"""
-        {page_query}
-        SELECT
-            car_type,
-            COUNT(*) AS count
-        FROM
-            Page
-        GROUP BY
-            car_type
-        """
-        rows = await conn.fetch(car_type_query)
-        car_type_buckets = {row["car_type"]: row["count"] for row in rows}
-
-        # number seats
-        num_seats_query = f"""
-        {page_query}
-        SELECT
-            number_seats,
-            COUNT(*) AS count
-        FROM
-            Page
-        GROUP BY
-            number_seats
-        """
-        rows = await conn.fetch(num_seats_query)
-        num_seats = [
-            {"numberSeats": row["number_seats"], "count": row["count"]} for row in rows
-        ]
-
-        # free km range
-        free_km_query = f"""
-        {page_query},
-        KilometerBuckets AS (
+                FROM
+                    Page
+            )
             SELECT
-                CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})
-                        AS INTEGER) * {query.minFreeKilometerWidth}
-                        AS rangeStart,
-                CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})
-                        AS INTEGER) * {query.minFreeKilometerWidth}
-                        + {query.minFreeKilometerWidth}
-                    AS rangeEnd
+                rangeStart AS start,
+                rangeEnd AS end,
+                COUNT(*) AS count
             FROM
-                Page
-        )
-        SELECT
-            rangeStart AS start,
-            rangeEnd AS end,
-            COUNT(*) AS count
-        FROM
-            KilometerBuckets
-        GROUP BY
-            rangeStart, rangeEnd
-        ORDER BY
-            rangeStart
-        """
-        rows = await conn.fetch(free_km_query)
-        free_km = [dict(row) for row in rows]
+                KilometerBuckets
+            GROUP BY
+                rangeStart, rangeEnd
+            ORDER BY
+                rangeStart
+            """
+            rows = await conn.fetch(free_km_query)
+            free_km = [dict(row) for row in rows]
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        await conn.close()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
     return {
         "offers": offers,
@@ -228,37 +238,33 @@ async def create_offers(offers: Offers) -> None:
     """
 
     # Connect to the database
-    conn = await get_db_connection()
-    try:
-        for offer in offers.offers:
-            # Execute query for each offer
-            await conn.execute(
-                query,
-                offer.ID,
-                offer.data,
-                offer.mostSpecificRegionID,
-                offer.startDate / 1000,
-                offer.endDate / 1000,
-                offer.numberSeats,
-                offer.price,
-                offer.carType,
-                offer.hasVollkasko,
-                offer.freeKilometers,
-            )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        await conn.close()
+    async with pool.acquire() as conn:
+        try:
+            for offer in offers.offers:
+                # Execute query for each offer
+                await conn.execute(
+                    query,
+                    offer.ID,
+                    offer.data,
+                    offer.mostSpecificRegionID,
+                    offer.startDate / 1000,
+                    offer.endDate / 1000,
+                    offer.numberSeats,
+                    offer.price,
+                    offer.carType,
+                    offer.hasVollkasko,
+                    offer.freeKilometers,
+                )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
 
 @app.delete("/api/offers")
 async def cleanup() -> None:
     query = "DELETE FROM rental_data"
 
-    conn = await get_db_connection()
-    try:
-        await conn.execute(query)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        await conn.close()
+    async with pool.acquire() as conn:
+        try:
+            await conn.execute(query)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Database error: {e}")

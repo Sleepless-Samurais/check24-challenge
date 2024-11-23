@@ -226,22 +226,22 @@ async def create_offers(req: Request) -> None:
 
     entries = (
         (
-            offer.ID,
-            offer.data,
-            offer.mostSpecificRegionID,
-            offer.startDate / 1000,
-            offer.endDate / 1000,
-            offer.numberSeats,
-            offer.price,
-            offer.carType,
-            offer.hasVollkasko,
-            offer.freeKilometers,
+            offer["ID"],
+            offer["data"],
+            offer["mostSpecificRegionID"],
+            offer["startDate"] / 1000,
+            offer["endDate"] / 1000,
+            offer["numberSeats"],
+            offer["price"],
+            offer["carType"],
+            offer["hasVollkasko"],
+            offer["freeKilometers"],
         )
-        for offer in offers.offers
+        for offer in offers["offers"]
     )
 
+    conn = await get_db_connection()
     try:
-        conn = await get_db_connection()
         await conn.executemany(query, entries)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")

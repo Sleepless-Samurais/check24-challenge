@@ -26,16 +26,16 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
     filter_params: list[int | float | str] = []
 
     # Region ID
-    # min_r, max_r = map(int, region_dict[str(query.regionID)])
-    # if min_r != max_r:
-    #     filters.append(
-    #         "most_specific_region_id >= $? AND most_specific_region_id <= $?"
-    #     )
-    #     filter_params.append(min_r)
-    #     filter_params.append(max_r)
-    # else:
-    #     filters.append("most_specific_region_id = $?")
-    #     filter_params.append(min_r)
+    min_r, max_r = map(int, region_dict[str(query.regionID)])
+    if min_r != max_r:
+        filters.append(
+            "most_specific_region_id >= $? AND most_specific_region_id <= $?"
+        )
+        filter_params.append(min_r)
+        filter_params.append(max_r)
+    else:
+        filters.append("most_specific_region_id = $?")
+        filter_params.append(min_r)
 
     # Time
     filters.append("start_date >= TO_TIMESTAMP({})")

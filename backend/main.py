@@ -199,7 +199,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         "carTypeCounts": car_type_buckets,
         "seatsCount": num_seats,
         "freeKilometerRange": free_km,
-        "vollkaskoCounts": {"trueCount": str(true_count), "falseCount": str(len(offers) - true_count)},
+        "vollkaskoCount": vollkasko,
     }
 
 

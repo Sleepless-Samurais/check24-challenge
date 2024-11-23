@@ -204,8 +204,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
 @app.post("/api/offers")
 async def create_offers(offers: Offers) -> None:
-    t0=time.time()
-    subprocess.run(["echo", "post"])
+    subprocess.run(["echo", str(len(offers.offers))])
     query = """
         INSERT INTO rental_data (
             ID,
@@ -226,7 +225,6 @@ async def create_offers(offers: Offers) -> None:
 
     # Connect to the database
     conn = await get_db_connection()
-    t1=time.time()
     try:
         for offer in offers.offers:
             # Execute query for each offer
@@ -247,9 +245,6 @@ async def create_offers(offers: Offers) -> None:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         await conn.close()
-    t2=time.time()
-    subprocess.run(["echo", f"{str(t1-t0)}, {str(t2-t1)}"])
-
 
 @app.delete("/api/offers")
 async def cleanup() -> None:

@@ -99,7 +99,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         """
         print(vollkasko_query)
         true_count = await conn.fetchval(vollkasko_query)
-        vollkasko = {"trueCount": true_count, "falseCount": len(offers) - true_count}
+        vollkasko = {"trueCount": 0, "falseCount": 0}
         print(true_count, len(offers), vollkasko)
 
         # Price range

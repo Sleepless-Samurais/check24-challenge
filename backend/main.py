@@ -13,7 +13,7 @@ with open("region_array.json", "rt") as fin:
 
 
 async def get_db_connection():
-    return await asyncpg.connect(DATABASE_URL)
+    return await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/db")
 
 
 app = FastAPI()
@@ -89,6 +89,18 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
         rows = await conn.fetch(offer_query)
         offers = [dict(row) for row in rows]
+        
+        vollkasko_query = f"""
+        {page_query}
+        SELECT COUNT(*) FROM (
+            SELECT * FROM Page
+            WHERE has_vollkasko = true
+        ) src;
+        """
+        print(vollkasko_query)
+        true_count = await conn.fetchval(vollkasko_query)
+        vollkasko = {"trueCount": true_count, "falseCount": len(offers) - true_count}
+        print(true_count, len(offers), vollkasko)
 
         # Price range
         price_query = f"""
@@ -175,18 +187,6 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         """
         rows = await conn.fetch(free_km_query)
         free_km = [dict(row) for row in rows]
-
-        vollkasko_query = f"""
-        {page_query}
-        SELECT COUNT(*) FROM (
-            SELECT * FROM Page
-            WHERE has_vollkasko = true
-        ) src;
-        """
-        print(vollkasko_query)
-        true_count = await conn.fetchval(vollkasko_query)
-        print(true_count)
-        vollkasko = {"trueCount": true_count, "falseCount": len(offers) - true_count}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")

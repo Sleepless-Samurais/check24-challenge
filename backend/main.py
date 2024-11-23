@@ -2,7 +2,7 @@ import json
 import os
 
 import asyncpg  # type: ignore
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 
 from models import Offer, OfferRequest, Offers
 
@@ -35,15 +35,23 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             )
         else:
             region_filter.append(f"(most_specific_region_id = {min_r})")
-
     filters.append("(" + " OR ".join(region_filter) + ")")
 
     # Time
-    filters.append(f"EXTRACT(EPOCH FROM start_date) >= {query.timeRangeStart // 1000}")
-    filters.append(f"EXTRACT(EPOCH FROM end_date) <= {query.timeRangeEnd // 1000}")
+    filters.append(
+        f"EXTRACT(EPOCH FROM start_date)\
+                   >= {query.timeRangeStart // 1000}"
+    )
+    filters.append(
+        f"EXTRACT(EPOCH FROM end_date)\
+            <= {query.timeRangeEnd // 1000}"
+    )
 
     # Days
-    filters.append(f"(end_date - start_date) >= INTERVAL '{query.numberDays} days'")
+    filters.append(
+        f"(end_date - start_date)\
+            >= INTERVAL '{query.numberDays} days'"
+    )
 
     # Num of seats
     if query.minNumberSeats:
@@ -72,42 +80,35 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
     # Page size
     paging_query = f"LIMIT {query.pageSize} OFFSET {query.page}"
 
+    # Order
+    if query.sortOrder == "price-asc":
+        order_clause = "ORDER BY price, id"
+    else:
+        order_clause = "ORDER BY price DESC, id DESC"
+
     conn = await get_db_connection()
-    try:
-        # Offers
-        page_query = f"""
-        WITH Page AS (
-            SELECT * FROM rental_data
-            {filter_query}
-            {paging_query}
-        )
-        """
 
-        # Order
-        if query.sortOrder == "price-asc":
-            order = "ORDER BY price, id"
-        else:
-            order = "ORDER BY price DESC, id DESC"
+    pg_query = f"""
+    WITH Page AS (
+        SELECT * FROM rental_data
+        {filter_query}
+        {paging_query}
+    ),
 
-        offer_query = f"""{page_query} SELECT id AS ID, data FROM page {order}"""
+    Offers AS (
+        SELECT
+            id as ID,
+            data
+        FROM Page
+        {order_clause}
+    ),
 
-        rows = await conn.fetch(offer_query)
-        offers = [dict(row) for row in rows]
-
-        vollkasko_query = f"""
-        {page_query}
-        SELECT COUNT(*) FROM (
-            SELECT * FROM Page
-            WHERE has_vollkasko = true
-        ) src;
-        """
-        true_count = await conn.fetchval(vollkasko_query)
-        vollkasko = {"trueCount": true_count, "falseCount": len(offers) - true_count}
-
-        # Price range
-        price_query = f"""
-        {page_query},
-        PriceBuckets AS (
+    PriceBuckets AS (
+        SELECT
+            rangeStart AS start,
+            rangeEnd AS end,
+            COUNT(*) AS count
+        FROM (
             SELECT
                 CAST(FLOOR(price / {query.priceRangeWidth}) AS INTEGER)
                         * {query.priceRangeWidth} AS rangeStart,
@@ -117,54 +118,35 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             FROM
                 Page
         )
+        GROUP BY rangeStart, rangeEnd
+        ORDER BY rangeStart
+    ),
+
+    PredefinedCarTypes AS (
+        SELECT 'small' AS car_type
+        UNION ALL
+        SELECT 'sports'
+        UNION ALL
+        SELECT 'luxury'
+        UNION ALL
+        SELECT 'family'
+    ),
+
+    CarTypeCounts AS (
+        SELECT
+            pct.car_type as car_type,
+            COALESCE(COUNT(p.car_type), 0) AS count
+        FROM PredefinedCarTypes pct
+        LEFT JOIN Page p ON pct.car_type = p.car_type
+        GROUP BY pct.car_type
+    ),
+
+    KilometerBuckets AS (
         SELECT
             rangeStart AS start,
             rangeEnd AS end,
             COUNT(*) AS count
-        FROM
-            PriceBuckets
-        GROUP BY
-            rangeStart, rangeEnd
-        ORDER BY
-            rangeStart
-        """
-        rows = await conn.fetch(price_query)
-        price_buckets = [dict(row) for row in rows]
-
-        # car type counts
-        car_type_query = f"""
-        {page_query}
-        SELECT
-            car_type,
-            COUNT(*) AS count
-        FROM
-            Page
-        GROUP BY
-            car_type
-        """
-        rows = await conn.fetch(car_type_query)
-        car_type_buckets = {row["car_type"]: row["count"] for row in rows}
-
-        # number seats
-        num_seats_query = f"""
-        {page_query}
-        SELECT
-            number_seats,
-            COUNT(*) AS count
-        FROM
-            Page
-        GROUP BY
-            number_seats
-        """
-        rows = await conn.fetch(num_seats_query)
-        num_seats = [
-            {"numberSeats": row["number_seats"], "count": row["count"]} for row in rows
-        ]
-
-        # free km range
-        free_km_query = f"""
-        {page_query},
-        KilometerBuckets AS (
+        FROM (
             SELECT
                 CAST(FLOOR(free_kilometers / {query.minFreeKilometerWidth})
                         AS INTEGER) * {query.minFreeKilometerWidth}
@@ -173,36 +155,50 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
                         AS INTEGER) * {query.minFreeKilometerWidth}
                         + {query.minFreeKilometerWidth}
                     AS rangeEnd
-            FROM
-                Page
+            FROM Page
         )
+        GROUP BY rangeStart, rangeEnd
+        ORDER BY rangeStart
+    ),
+
+    SeatsCount AS (
         SELECT
-            rangeStart AS start,
-            rangeEnd AS end,
+            number_seats AS numberSeats,
             COUNT(*) AS count
-        FROM
-            KilometerBuckets
-        GROUP BY
-            rangeStart, rangeEnd
-        ORDER BY
-            rangeStart
-        """
-        rows = await conn.fetch(free_km_query)
-        free_km = [dict(row) for row in rows]
+        FROM Page
+        GROUP BY number_seats
+    ),
+
+    VollkaskoCount AS (
+        SELECT
+            COUNT(*) FILTER (WHERE has_vollkasko = true) AS trueCount,
+            COUNT(*) FILTER (WHERE has_vollkasko = false) AS falseCount
+        FROM Page
+    )
+
+    SELECT
+        json_build_object(
+        'offers', COALESCE((SELECT json_agg(json_build_object('id', id, 'data', data)) FROM Page), '[]'::json),
+        'priceRanges', COALESCE((SELECT json_agg(PriceBuckets) FROM PriceBuckets), '[]'::json),
+        'carTypeCounts', COALESCE((SELECT json_object_agg(car_type, count) FROM CarTypeCounts), '[]'::json),
+        'seatsCount', COALESCE((SELECT json_agg(SeatsCount) FROM SeatsCount), '[]'::json),
+        'freeKilometerRange', COALESCE((SELECT json_agg(KilometerBuckets) FROM KilometerBuckets), '[]'::json),
+        'vollkaskoCount', COALESCE(json_build_object(
+            'trueCount', (SELECT trueCount from VollkaskoCount),
+            'falseCount', (SELECT falseCount from VollkaskoCount)
+        ), '[]'::json)
+    ) AS result
+    """
+
+    try:
+        row = await conn.fetchrow(pg_query)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         await conn.close()
 
-    return {
-        "offers": offers,
-        "priceRanges": price_buckets,
-        "carTypeCounts": car_type_buckets,
-        "seatsCount": num_seats,
-        "freeKilometerRange": free_km,
-        "vollkaskoCount": vollkasko,
-    }
+    return Response(content=row["result"], media_type="application/json")
 
 
 @app.post("/api/offers")

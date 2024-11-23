@@ -196,8 +196,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         ORDER BY
             has_vollkasko
         """
-        print(vollkasko_query)
-        dict(await conn.fetch(vollkasko_query))
+        rows = dict(await conn.fetch(vollkasko_query))
         vollkasko = {"trueCount": rows[1], "falseCount": rows[0]}
 
     except Exception as e:

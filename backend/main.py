@@ -25,15 +25,18 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
     filters: list[str] = []
 
     # Region ID
+    region_filter = []
     for r in region_dict[str(query.regionID)]:
         min_r, max_r = map(int, r)
         if min_r != max_r:
-            filters.append(
-                f"most_specific_region_id >= {min_r} \
-                        AND most_specific_region_id <= {max_r}"
+            region_filter.append(
+                f"(most_specific_region_id >= {min_r} \
+                        AND most_specific_region_id <= {max_r})"
             )
         else:
-            filters.append(f"most_specific_region_id = {min_r}")
+            region_filter.append(f"(most_specific_region_id = {min_r})")
+
+    filters.append("(" + " OR ".join(region_filter) + ")")
 
     # Time
     filters.append(f"EXTRACT(EPOCH FROM start_date) >= {query.timeRangeStart // 1000}")
@@ -84,7 +87,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         if query.sortOrder == "price-asc":
             order = "ORDER BY price, id"
         else:
-            order = "ORDER BY price DESC, id"
+            order = "ORDER BY price DESC, id DESC"
 
         offer_query = f"""{page_query} SELECT id AS ID, data FROM page {order}"""
 

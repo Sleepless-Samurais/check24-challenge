@@ -13,7 +13,7 @@ with open("region_array.json", "rt") as fin:
 
 
 async def get_db_connection():
-    return await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/db")
+    return await asyncpg.connect(DATABASE_URL)
 
 
 app = FastAPI()

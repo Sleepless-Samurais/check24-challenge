@@ -2,7 +2,7 @@ import orjson as json
 import os
 
 import asyncpg  # type: ignore
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 
 from models import Offer, OfferRequest, Offers
 
@@ -208,7 +208,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
 
 @app.post("/api/offers")
-async def create_offers(offers: Offers) -> None:
+async def create_offers(offers: Request) -> None:
     query = """
         INSERT INTO rental_data (
             ID,
@@ -226,25 +226,27 @@ async def create_offers(offers: Offers) -> None:
             $7, $8, $9, $10
         )
     """
+    offers = json.loads(await offers.body())
 
-    # Connect to the database
-    conn = await get_db_connection()
+    entries = (
+        (
+            offer["ID"],
+            offer["data"],
+            offer["mostSpecificRegionID"],
+            offer["startDate"] / 1000,
+            offer["endDate"] / 1000,
+            offer["numberSeats"],
+            offer["price"],
+            offer["carType"],
+            offer["hasVollkasko"],
+            offer["freeKilometers"],
+        )
+        for offer in offers["offers"]
+    )
+
     try:
-        for offer in offers.offers:
-            # Execute query for each offer
-            await conn.execute(
-                query,
-                offer.ID,
-                offer.data,
-                offer.mostSpecificRegionID,
-                offer.startDate / 1000,
-                offer.endDate / 1000,
-                offer.numberSeats,
-                offer.price,
-                offer.carType,
-                offer.hasVollkasko,
-                offer.freeKilometers,
-            )
+        conn = await get_db_connection()
+        await conn.executemany(query, entries)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:

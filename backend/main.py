@@ -109,8 +109,8 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         price_query = """
         WITH PriceBuckets AS (
             SELECT
-                FLOOR(price / $1) * $1 AS rangeStart,
-                FLOOR(price / $1) * $1 + $1 AS rangeEnd
+                CAST(FLOOR(price / $1) AS INTEGER) * $1 AS rangeStart,
+                CAST(FLOOR(price / $1) AS INTEGER) * $1 + $1 AS rangeEnd
             FROM
                 rental_data
         )
@@ -157,8 +157,10 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         free_km_query = """
         WITH KilometerBuckets AS (
             SELECT
-                FLOOR(free_kilometers / $1) * $1 AS rangeStart,
-                FLOOR(free_kilometers / $1) * $1 + $1 AS rangeEnd
+                CAST(FLOOR(free_kilometers / $1) AS INTEGER) * $1
+                    AS rangeStart,
+                CAST(FLOOR(free_kilometers / $1) AS INTEGER) * $1 + $1
+                    AS rangeEnd
             FROM
                 rental_data
         )

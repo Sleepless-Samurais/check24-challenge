@@ -23,7 +23,7 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_EXTRA_CONFIG: "shared_buffers=2GB"
     volumes:
-    - ./postgresql.conf:/etc/postgresql.conf
-    - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./postgresql.conf:/etc/postgresql.conf
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
 

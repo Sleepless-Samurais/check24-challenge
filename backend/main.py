@@ -1,6 +1,6 @@
 import os
 
-import asyncpg  # type: ignore
+import asyncpg
 from fastapi import FastAPI, HTTPException
 
 from models import Offer, OfferRequest, Offers
@@ -76,15 +76,13 @@ async def get_offers(query: OfferRequest) -> dict:
     paging_params.append(query.pageSize)
     paging_params.append(query.page)
 
-    def 
-
     conn = await get_db_connection()
     try:
         # Offers
         offer_query = " ".join(
             ("SELECT id AS ID, data FROM rental_data", filter_query, order)
         )
-        params = 
+        params = {}
         offers = await conn.fetch(query, params)
 
     except Exception as e:

@@ -179,16 +179,16 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         vollkasko_query = f"""
         {page_query}
         SELECT
-            COUNT(*) AS count
+            COUNT(
+                CASE WHEN has_vollkasko THEN 1 END
+            )
         FROM
             Page
-        WHERE
-            has_vollkasko = TRUE
         """
         print(vollkasko_query)
         true_count = await conn.fetchval(vollkasko_query)
         print(true_count)
-        vollkasko = {"trueCount": true_count, "falseCount": len(free_km) - true_count}
+        vollkasko = {"trueCount": true_count, "falseCount": len(offers) - true_count}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")

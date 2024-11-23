@@ -177,8 +177,9 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         free_km = [dict(row) for row in rows]
 
         vollkasko_query = f"""
+        {page_query}
         SELECT COUNT(*) FROM (
-            SELECT * FROM {page_query}
+            SELECT * FROM Page
             WHERE has_vollkasko = true
         ) src;
         """

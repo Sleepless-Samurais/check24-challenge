@@ -35,11 +35,11 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         filters.append(f"most_specific_region_id = {min_r}")
 
     # Time
-    filters.append(f"EXTRACT(EPOCH FROM start_date) >= {query.timeRangeStart // 1000}")
-    filters.append(f"EXTRACT(EPOCH FROM end_date) <= {query.timeRangeEnd // 1000}")
+    filters.append(f"start_date >= {query.timeRangeStart // 1000}")
+    filters.append(f"end_date <= {query.timeRangeEnd // 1000}")
 
     # Days
-    filters.append(f"(end_date - start_date) >= INTERVAL '{query.numberDays} days'")
+    filters.append(f"(end_date - start_date) >= EXCTRACT(EPOCH FROM (INTERVAL '{query.numberDays} days'))")
 
     # Num of seats
     if query.minNumberSeats:

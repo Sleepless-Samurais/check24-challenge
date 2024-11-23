@@ -57,7 +57,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
     # car type
     if query.carType:
-        filters.append(f"car_type = {query.carType}")
+        filters.append(f"car_type = '{query.carType}'")
 
     # vollkasko
     if query.onlyVollkasko:

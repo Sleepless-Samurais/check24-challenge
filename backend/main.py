@@ -101,10 +101,8 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             WHERE has_vollkasko = true
         ) src;
         """
-        print(vollkasko_query)
         true_count = await conn.fetchval(vollkasko_query)
         vollkasko = {"trueCount": true_count, "falseCount": len(offers) - true_count}
-        print(true_count, len(offers), vollkasko)
 
         # Price range
         price_query = f"""

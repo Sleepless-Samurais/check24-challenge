@@ -1,7 +1,7 @@
 import os
 
 import asyncpg
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 
 from models import Offer, OfferRequest, Offers
 from region import region_range
@@ -19,6 +19,7 @@ app = FastAPI()
 @app.get("/api/offers")
 async def get_offers(query: OfferRequest) -> dict:
 
+    ## Doing filters
     filters = []
     filter_params = []
 
@@ -64,13 +65,14 @@ async def get_offers(query: OfferRequest) -> dict:
 
     filter_query = " WHERE " + " AND ".join(filters)
 
-    # Order
+
+    ## Doing Order
     if query.sortOrder == "price-asc":
         order = "ORDER BY price"
     else:
         order = "ORDER BY price DESC"
 
-    # Page size
+    ## Doing paging
     paging = "LIMIT $? OFFSET $?"
     paging_params = []
     paging_params.append(query.pageSize)
@@ -79,22 +81,21 @@ async def get_offers(query: OfferRequest) -> dict:
     conn = await get_db_connection()
     try:
         # Offers
-        offer_query = " ".join(
-            ("SELECT id AS ID, data FROM rental_data", filter_query, order)
+        query_string = " ".join(
+            ("SELECT id AS ID, data FROM rental_data", filter_query, order, paging)
         )
-        params = {}
-        offers = await conn.fetch(query, params)
+        params = filter_params + paging_params
+        offers = await conn.fetch(query_string, params)
+        return {}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         await conn.close()
 
-    return {}
-
 
 @app.post("/api/offers")
-async def create_offers(offers: Offers) -> None:
+async def create_offers(offers: Offers):
     query = """
         INSERT INTO rental_data (
             ID,
@@ -116,21 +117,25 @@ async def create_offers(offers: Offers) -> None:
     # Connect to the database
     conn = await get_db_connection()
     try:
+        # TODO: optimization point
         for offer in offers.offers:
             # Execute query for each offer
             await conn.execute(
                 query,
-                offer.ID,
-                offer.data,
-                offer.mostSpecificRegionID,
-                offer.startDate / 1000,
-                offer.endDate / 1000,
-                offer.numberSeats,
-                offer.price,
-                offer.carType,
-                offer.hasVollkasko,
-                offer.freeKilometers,
+                [
+                    offer.ID,
+                    offer.data,
+                    offer.mostSpecificRegionID,
+                    offer.startDate / 1000,
+                    offer.endDate / 1000,
+                    offer.numberSeats,
+                    offer.price,
+                    offer.carType,
+                    offer.hasVollkasko,
+                    offer.freeKilometers,
+                ]
             )
+        return Response(status_code=200)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
@@ -138,13 +143,13 @@ async def create_offers(offers: Offers) -> None:
 
 
 @app.delete("/api/offers")
-async def cleanup() -> None:
+async def cleanup():
     query = "DELETE FROM rental_data"
 
     conn = await get_db_connection()
     try:
-        for offer in offers.offers:
-            await conn.execute(query)
+        await conn.execute(query)
+        return Response(status_code=200)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:

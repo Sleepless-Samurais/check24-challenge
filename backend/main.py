@@ -124,7 +124,7 @@ async def create_offers(offers: Offers):
             await conn.execute(
                 query,
                 [
-                    offer.ID,
+                    offer.OfferID,
                     offer.Data,
                     offer.MostSpecificRegionID,
                     offer.StartDate / 1000,

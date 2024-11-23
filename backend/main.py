@@ -1,5 +1,7 @@
 import json
 import os
+import time
+import subprocess
 
 import asyncpg  # type: ignore
 from fastapi import FastAPI, HTTPException, Query
@@ -21,7 +23,7 @@ app = FastAPI()
 
 @app.get("/api/offers")
 async def get_offers(query: OfferRequest = Query()) -> dict:
-
+    t0=time.time()
     filters: list[str] = []
 
     # Region ID
@@ -196,7 +198,9 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         await conn.close()
-
+    
+    t1=time.time()
+    subprocess.run(["echo", str(t1-t0)])
     return {
         "offers": offers,
         "priceRanges": price_buckets,
@@ -209,6 +213,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
 @app.post("/api/offers")
 async def create_offers(offers: Offers) -> None:
+    t0=time.time()
     query = """
         INSERT INTO rental_data (
             ID,
@@ -249,7 +254,8 @@ async def create_offers(offers: Offers) -> None:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         await conn.close()
-
+    t1=time.time()
+    subprocess.run(["echo", str(t1-t0)])
 
 @app.delete("/api/offers")
 async def cleanup() -> None:

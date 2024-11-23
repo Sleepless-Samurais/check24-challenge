@@ -2,6 +2,7 @@ import json
 import os
 import time
 import subprocess
+import cProfile
 
 import asyncpg  # type: ignore
 from fastapi import FastAPI, HTTPException, Query, Response
@@ -200,7 +201,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
     finally:
         await conn.close()
     t1=time.time()
-    subprocess.run(["echo", str(t1-t0)])
+    # subprocess.run(["echo", str(t1-t0)])
     return Response(content=row["result"], media_type="application/json")
 
 

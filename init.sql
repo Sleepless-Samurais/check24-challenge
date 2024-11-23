@@ -1,6 +1,6 @@
 CREATE TABLE rental_data (
     id UUID PRIMARY KEY,
-    data VARCHAR(256) NOT NULL,
+    data VARCHAR(512) NOT NULL,
     most_specific_region_id INTEGER NOT NULL,
     start_date TIMESTAMP NOT NULL,
     end_date TIMESTAMP NOT NULL,

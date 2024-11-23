@@ -38,8 +38,8 @@ async def get_offers(query: OfferRequest) -> dict:
     # Time
     filters.append("start_date >= TO_TIMESTAMP($?)")
     filters.append("end_date <= TO_TIMESTAMP($?)")
-    filter_params.append(str(query.TimeRangeStart / 1000))
-    filter_params.append(str(query.TimeRangeEnd / 1000))
+    filter_params.append(str(query.StartRange / 1000))
+    filter_params.append(str(query.EndRange / 1000))
 
     # Days
     filters.append("(end_date - start_date) >= INTERVAL '$? days'")
@@ -86,7 +86,8 @@ async def get_offers(query: OfferRequest) -> dict:
         )
         params = filter_params + paging_params
         offers = await conn.fetch(query_string, params)
-        return {}
+        print(offers)
+        return offers
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")

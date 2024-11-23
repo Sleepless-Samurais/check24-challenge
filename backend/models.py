@@ -17,13 +17,14 @@ class Offer(BaseModel):
 
 
 class Offers(BaseModel):
+    ID: str
     Offers: list[Offer]
 
 
 class OfferRequest(BaseModel):
     RegionID: int
-    TimeRangeStart: int
-    TimeRangeEnd: int
+    StartRange: int
+    EndRange: int
     NumberDays: int
     SortOrder: Literal["price-asc", "price-desc"]
     Page: int

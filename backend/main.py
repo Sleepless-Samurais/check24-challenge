@@ -92,6 +92,7 @@ async def get_offers(query: OfferRequest = Query()):
     WITH Page AS (
         SELECT * FROM rental_data
         {filter_query}
+        {paging_query}
     ),
 
     Offers AS (
@@ -100,7 +101,6 @@ async def get_offers(query: OfferRequest = Query()):
             data
         FROM Page
         {order_clause}
-        {paging_query}
     ),
 
     PriceBuckets AS (

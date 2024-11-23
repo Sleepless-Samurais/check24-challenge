@@ -1,15 +1,15 @@
-import json
 import os
 
 import asyncpg  # type: ignore
-from fastapi import FastAPI, HTTPException, Query, Response
+import orjson as json
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 
 from models import Offer, OfferRequest, Offers
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 with open("region_array.json", "rt") as fin:
-    region_dict = json.load(fin)
+    region_dict = json.loads(fin.read())
 
 
 async def get_db_connection():
@@ -202,7 +202,10 @@ async def get_offers(query: OfferRequest = Query()):
 
 
 @app.post("/api/offers")
-async def create_offers(offers: Offers) -> None:
+async def create_offers(req: Request) -> None:
+
+    offers = json.loads(await req.body())
+
     query = """
         INSERT INTO rental_data (
             ID,

@@ -65,7 +65,7 @@ async def get_offers(query: OfferRequest = Query()):
 
     # car type
     if query.carType:
-        filters.append(f"car_type = {query.carType}")
+        filters.append(f"car_type = '{query.carType}'")
 
     # vollkasko
     if query.onlyVollkasko:
@@ -236,6 +236,7 @@ async def create_offers(offers: Offers) -> None:
         )
         for offer in offers.offers
     )
+
     try:
         conn = await get_db_connection()
         await conn.executemany(query, entries)

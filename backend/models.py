@@ -5,11 +5,10 @@ from typing import Optional, Literal
 
 class Offer(BaseModel):
     OfferID: str
-    Data: str = Field(max_length=255)
     RegionID: int
     NumberDays: int
-    StartTimestamp: int
-    EndTimestamp: int
+    StartTimestamp: str
+    EndTimestamp: str
     NumberSeats: int
     Price: int
     CarType: str

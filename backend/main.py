@@ -18,6 +18,15 @@ async def get_db_connection():
 
 
 app = FastAPI()
+# Database configuration
+
+DB_CONFIG = {
+    "user": "postgres",
+    "password": "postgres",
+    "database": "postgres",
+    "host": "localhost",
+    "port": 5432,
+}
 
 # Initialize the connection pool on app startup
 @app.on_event("startup")

@@ -253,8 +253,7 @@ async def cleanup() -> None:
 
     conn = await get_db_connection()
     try:
-        for offer in offers.offers:
-            await conn.execute(query)
+        await conn.execute(query)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:

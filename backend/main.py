@@ -143,9 +143,7 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             number_seats
         """
         rows = await conn.fetch(num_seats_query)
-        num_seats = [
-            {"numberSeats": row["number_seats"], "count": row["count"]} for row in rows
-        ]
+        num_seats = {row["number_seats"]: row["count"] for row in rows}
 
         # free km range
         free_km_query = f"""

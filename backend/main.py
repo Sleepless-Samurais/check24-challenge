@@ -1,7 +1,7 @@
 import json
 import os
 
-import asyncio
+from contextlib import asynccontextmanager
 import asyncpg  # type: ignore
 from fastapi import FastAPI, HTTPException, Query
 
@@ -204,19 +204,17 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
             return {"trueCount": true_count, "falseCount": len(await offers) - true_count}
         vollkasko = get_vollkasko()
 
+        return {
+            "offers": await offers,
+            "priceRanges": await price_buckets,
+            "carTypeCounts": await car_type_buckets,
+            "seatsCount": await num_seats,
+            "freeKilometerRange": await free_km,
+            "vollkaskoCount": await vollkasko,
+        }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        await conn.close()
-
-    return {
-        "offers": await offers,
-        "priceRanges": await price_buckets,
-        "carTypeCounts": await car_type_buckets,
-        "seatsCount": await num_seats,
-        "freeKilometerRange": await free_km,
-        "vollkaskoCount": await vollkasko,
-    }
 
 
 @app.post("/api/offers")
@@ -274,3 +272,9 @@ async def cleanup() -> None:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:
         await conn.close()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    conn = await get_db_connection()
+    await conn.close()

@@ -24,8 +24,8 @@ async def get_offers(query: OfferRequest) -> dict:
     filter_params = []
 
     # Region ID
-    if query.regionID < 21:
-        min_r, max_r = region_range[query.regionID]
+    if query.RegionID < 21:
+        min_r, max_r = region_range[query.RegionID]
         filters.append(
             "most_specific_region_id >= $? AND most_specific_region_id <= $?"
         )
@@ -33,41 +33,41 @@ async def get_offers(query: OfferRequest) -> dict:
         filter_params.append(str(max_r))
     else:
         filters.append("most_specific_region_id = $?")
-        filter_params.append(str(query.regionID))
+        filter_params.append(str(query.RegionID))
 
     # Time
     filters.append("start_date >= TO_TIMESTAMP($?)")
     filters.append("end_date <= TO_TIMESTAMP($?)")
-    filter_params.append(str(query.timeRangeStart / 1000))
-    filter_params.append(str(query.timeRangeEnd / 1000))
+    filter_params.append(str(query.TimeRangeStart / 1000))
+    filter_params.append(str(query.TimeRangeEnd / 1000))
 
     # Days
     filters.append("(end_date - start_date) >= INTERVAL '$? days'")
-    filter_params.append(str(query.numberDays))
+    filter_params.append(str(query.NumberDays))
 
     # Num of seats
-    if query.minNumberSeats:
+    if query.MinNumberSeats:
         filters.append("number_seats >= $?")
-        filter_params.append(str(query.minNumberSeats))
+        filter_params.append(str(query.MinNumberSeats))
 
     # price
-    if query.minPrice:
+    if query.MinPrice:
         filters.append("price >= $?")
-        filter_params.append(str(query.minPrice))
-    if query.maxPrice:
+        filter_params.append(str(query.MinPrice))
+    if query.MaxPrice:
         filters.append("price <= $?")
-        filter_params.append(str(query.maxPrice))
+        filter_params.append(str(query.MaxPrice))
 
     # car type
-    if query.carType:
+    if query.CarType:
         filters.append("car_type = $?")
-        filter_params.append(str(query.carType))
+        filter_params.append(str(query.CarType))
 
     filter_query = " WHERE " + " AND ".join(filters)
 
 
     ## Doing Order
-    if query.sortOrder == "price-asc":
+    if query.SortOrder == "price-asc":
         order = "ORDER BY price"
     else:
         order = "ORDER BY price DESC"
@@ -75,8 +75,8 @@ async def get_offers(query: OfferRequest) -> dict:
     ## Doing paging
     paging = "LIMIT $? OFFSET $?"
     paging_params = []
-    paging_params.append(query.pageSize)
-    paging_params.append(query.page)
+    paging_params.append(query.PageSize)
+    paging_params.append(query.Page)
 
     conn = await get_db_connection()
     try:
@@ -118,21 +118,21 @@ async def create_offers(offers: Offers):
     conn = await get_db_connection()
     try:
         # TODO: optimization point
-        for offer in offers.offers:
+        for offer in offers.Offers:
             # Execute query for each offer
             await conn.execute(
                 query,
                 [
                     offer.ID,
-                    offer.data,
-                    offer.mostSpecificRegionID,
-                    offer.startDate / 1000,
-                    offer.endDate / 1000,
-                    offer.numberSeats,
-                    offer.price,
-                    offer.carType,
-                    offer.hasVollkasko,
-                    offer.freeKilometers,
+                    offer.Data,
+                    offer.MostSpecificRegionID,
+                    offer.StartDate / 1000,
+                    offer.EndDate / 1000,
+                    offer.NumberSeats,
+                    offer.Price,
+                    offer.CarType,
+                    offer.HasVollkasko,
+                    offer.FreeKilometers,
                 ]
             )
         return Response(status_code=200)

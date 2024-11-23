@@ -5,34 +5,34 @@ from typing import Optional, Literal
 
 class Offer(BaseModel):
     ID: str
-    data: str = Field(max_length=255)
-    mostSpecificRegionID: int
-    startDate: int
-    endDate: int
-    numberSeats: int
-    price: int
-    carType: str
-    hasVollkasko: bool
-    freeKilometers: int
+    Data: str = Field(max_length=255)
+    MostSpecificRegionID: int
+    StartDate: int
+    EndDate: int
+    NumberSeats: int
+    Price: int
+    CarType: str
+    HasVollkasko: bool
+    FreeKilometers: int
 
 
 class Offers(BaseModel):
-    offers: list[Offer]
+    Offers: list[Offer]
 
 
 class OfferRequest(BaseModel):
-    regionID: int
-    timeRangeStart: int
-    timeRangeEnd: int
-    numberDays: int
-    sortOrder: Literal["price-asc", "price-desc"]
-    page: int
-    pageSize: int
-    priceRangeWidth: int
-    minFreeKilometerWidth: int
-    minNumberSeats: Optional[int] = None
-    minPrice: Optional[float] = None
-    maxPrice: Optional[float] = None
-    carType: Optional[Literal["small", "sports", "luxury", "family"]] = None
-    onlyVollkasko: Optional[bool] = None
-    minFreeKilometer: Optional[int] = None
+    RegionID: int
+    TimeRangeStart: int
+    TimeRangeEnd: int
+    NumberDays: int
+    SortOrder: Literal["price-asc", "price-desc"]
+    Page: int
+    PageSize: int
+    PriceRangeWidth: int
+    MinFreeKilometerWidth: int
+    MinNumberSeats: Optional[int] = None
+    MinPrice: Optional[float] = None
+    MaxPrice: Optional[float] = None
+    CarType: Optional[Literal["small", "sports", "luxury", "family"]] = None
+    OnlyVollkasko: Optional[bool] = None
+    MinFreeKilometer: Optional[int] = None

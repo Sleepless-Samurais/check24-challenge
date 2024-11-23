@@ -11,14 +11,14 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 
 ENV PATH="/root/.local/bin:$PATH"
 
-COPY . .
+COPY pyproject.toml poetry.lock ./
 RUN poetry config virtualenvs.create false && poetry install --no-root --no-dev
 
 
 FROM base as run
+COPY . .
 
 EXPOSE 80
-
 # gunicorn main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:80 --workers 4 --threads 2
 CMD ["gunicorn", "main:app", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:80", "--workers", "4", "--threads", "2"]
 

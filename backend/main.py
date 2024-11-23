@@ -82,11 +82,11 @@ async def get_offers(query: OfferRequest = Query()) -> dict:
 
         # Order
         if query.sortOrder == "price-asc":
-            order = "ORDER BY price"
+            order = "ORDER BY price, id"
         else:
-            order = "ORDER BY price DESC"
+            order = "ORDER BY price DESC, id"
 
-        offer_query = f"{page_query} SELECT id AS ID, data FROM page {order}"
+        offer_query = f"""{page_query} SELECT id AS ID, data FROM page {order}"""
 
         rows = await conn.fetch(offer_query)
         offers = [dict(row) for row in rows]

@@ -20,7 +20,7 @@ app = FastAPI()
 
 
 @app.get("/api/offers")
-async def get_offers(query: OfferRequest = Query()) -> dict:
+async def get_offers(query: OfferRequest = Query()):
 
     filters: list[str] = []
 
@@ -221,24 +221,24 @@ async def create_offers(offers: Offers) -> None:
         )
     """
 
-    # Connect to the database
-    conn = await get_db_connection()
+    entries = (
+        (
+            offer.ID,
+            offer.data,
+            offer.mostSpecificRegionID,
+            offer.startDate,
+            offer.endDate,
+            offer.numberSeats,
+            offer.price,
+            offer.carType,
+            offer.hasVollkasko,
+            offer.freeKilometers,
+        )
+        for offer in offers.offers
+    )
     try:
-        for offer in offers.offers:
-            # Execute query for each offer
-            await conn.execute(
-                query,
-                offer.ID,
-                offer.data,
-                offer.mostSpecificRegionID,
-                offer.startDate / 1000,
-                offer.endDate / 1000,
-                offer.numberSeats,
-                offer.price,
-                offer.carType,
-                offer.hasVollkasko,
-                offer.freeKilometers,
-            )
+        conn = await get_db_connection()
+        await conn.executemany(query, entries)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
     finally:

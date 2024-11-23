@@ -5,7 +5,7 @@ from typing import Optional, Literal
 
 class Offer(BaseModel):
     ID: str
-    data: str = Field(max_length=255)
+    data: str = Field(max_length=512)
     mostSpecificRegionID: int
     startDate: int
     endDate: int

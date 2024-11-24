@@ -41,12 +41,12 @@ async def get_offers(query: OfferRequest = Query()):
         await condition.wait_for(lambda: not lock.locked())
 
     filters: list[str] = []
-    optional_filters: dict[str, list[str]] = {
-        "number_seats": [],
-        "price": [],
-        "car_type": [],
-        "has_vollkasko": [],
-        "free_kilometers": [],
+    optional_filters: dict[str, str | None] = {
+        "number_seats": None,
+        "price": None,
+        "car_type": None,
+        "has_vollkasko": None,
+        "free_kilometers": None,
     }
 
     # Region ID
@@ -80,56 +80,39 @@ async def get_offers(query: OfferRequest = Query()):
 
     # Num of seats
     if query.minNumberSeats:
-        tmp = f"number_seats >= {query.minNumberSeats}"
-        optional_filters["price"].append(tmp)
-        optional_filters["car_type"].append(tmp)
-        optional_filters["has_vollkasko"].append(tmp)
-        optional_filters["free_kilometers"].append(tmp)
+        optional_filters["number_seats"] = f"number_seats >= {query.minNumberSeats}"
 
     # price
-    if query.minPrice:
-        tmp = f"price >= {query.minPrice}"
-        optional_filters["number_seats"].append(tmp)
-        optional_filters["car_type"].append(tmp)
-        optional_filters["has_vollkasko"].append(tmp)
-        optional_filters["free_kilometers"].append(tmp)
-    if query.maxPrice:
-        tmp = f"price <= {query.maxPrice}"
-        optional_filters["number_seats"].append(tmp)
-        optional_filters["car_type"].append(tmp)
-        optional_filters["has_vollkasko"].append(tmp)
-        optional_filters["free_kilometers"].append(tmp)
+    if query.minPrice or query.maxPrice:
+        tmp = []
+        if query.minPrice:
+            tmp.append(f"price >= {query.minPrice}")
+        if query.maxPrice:
+            tmp.append(f"price <= {query.maxPrice}")
+        optional_filters["price"] = " AND ".join(tmp)
 
     # car type
     if query.carType:
-        tmp = f"car_type = '{query.carType}'"
-        optional_filters["number_seats"].append(tmp)
-        optional_filters["price"].append(tmp)
-        optional_filters["has_vollkasko"].append(tmp)
-        optional_filters["free_kilometers"].append(tmp)
+        optional_filters["car_type"] = f"car_type = '{query.carType}'"
 
     # vollkasko
     if query.onlyVollkasko:
-        tmp = "has_vollkasko = TRUE"
-        optional_filters["number_seats"].append(tmp)
-        optional_filters["price"].append(tmp)
-        optional_filters["car_type"].append(tmp)
-        optional_filters["free_kilometers"].append(tmp)
+        optional_filters["has_vollkasko"] = "has_vollkasko = TRUE"
 
     # min free km
     if query.minFreeKilometer:
-        tmp = f"free_kilometers >= {query.minFreeKilometer}"
-        optional_filters["number_seats"].append(tmp)
-        optional_filters["price"].append(tmp)
-        optional_filters["car_type"].append(tmp)
-        optional_filters["has_vollkasko"].append(tmp)
+        optional_filters["free_kilometers"] = (
+            f"free_kilometers >= {query.minFreeKilometer}"
+        )
 
-    def where_clause_gen(filters: list[str]) -> str:
-        if len(filters) == 0:
+    def where_clause(column: str | None = None) -> str:
+        res = [v for k, v in optional_filters.items() if k != column and v]
+        if len(res) == 0:
             return ""
-        return " WHERE " + " AND ".join(filters)
+        return "WHERE " + " AND ".join(res)
 
     # Page size
+    filter_query = "WHERE " + " AND ".join(filters)
     paging_query = f"LIMIT {query.pageSize} OFFSET {query.page}"
 
     # Order
@@ -141,7 +124,7 @@ async def get_offers(query: OfferRequest = Query()):
     pg_query = f"""
     WITH Page AS (
         SELECT * FROM rental_data
-        {where_clause_gen(filters)}
+        {filter_query}
         {paging_query}
     ),
 
@@ -150,6 +133,7 @@ async def get_offers(query: OfferRequest = Query()):
             id as ID,
             data
         FROM Page
+        {where_clause()}
         {order_clause}
     ),
 
@@ -167,7 +151,7 @@ async def get_offers(query: OfferRequest = Query()):
                         AS rangeEnd
             FROM
                 Page
-            {where_clause_gen(optional_filters["price"])}
+            {where_clause("price")}
         )
         GROUP BY rangeStart, rangeEnd
         ORDER BY rangeStart
@@ -189,7 +173,7 @@ async def get_offers(query: OfferRequest = Query()):
             COALESCE(COUNT(p.car_type), 0) AS count
         FROM PredefinedCarTypes pct
         LEFT JOIN Page p ON pct.car_type = p.car_type
-        {where_clause_gen(optional_filters["car_type"])}
+        {where_clause("car_type")}
         GROUP BY pct.car_type
     ),
 
@@ -208,7 +192,7 @@ async def get_offers(query: OfferRequest = Query()):
                         + {query.minFreeKilometerWidth}
                     AS rangeEnd
             FROM Page
-            {where_clause_gen(optional_filters["free_kilometers"])}
+            {where_clause("free_kilometers")}
         )
         GROUP BY rangeStart, rangeEnd
         ORDER BY rangeStart
@@ -219,7 +203,7 @@ async def get_offers(query: OfferRequest = Query()):
             number_seats AS numberSeats,
             COUNT(*) AS count
         FROM Page
-        {where_clause_gen(optional_filters["number_seats"])}
+        {where_clause("number_seats")}
         GROUP BY number_seats
     ),
 
@@ -228,7 +212,7 @@ async def get_offers(query: OfferRequest = Query()):
             COUNT(*) FILTER (WHERE has_vollkasko = true) AS trueCount,
             COUNT(*) FILTER (WHERE has_vollkasko = false) AS falseCount
         FROM Page
-        {where_clause_gen(optional_filters["has_vollkasko"])}
+        {where_clause("has_vollkasko")}
     )
 
     SELECT

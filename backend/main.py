@@ -110,7 +110,7 @@ async def get_offers(query: OfferRequest = Query()):
 
     # Page size
     filter_query = "WHERE " + " AND ".join(filters)
-    paging_query = f"LIMIT {query.pageSize} OFFSET {query.page}"
+    paging_query = f"LIMIT {query.pageSize} OFFSET {query.page * query.pageSize}"
 
     # Order
     if query.sortOrder == "price-asc":

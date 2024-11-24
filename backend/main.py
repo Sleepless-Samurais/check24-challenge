@@ -319,7 +319,15 @@ async def create_offers(req: Request) -> None:
         global pool
         async with pool.acquire() as conn:
             try:
+                await conn.execute("""
+                    DROP INDEX IF EXISTS date_index;
+                    DROP INDEX IF EXISTS region_index;
+                """)
                 await conn.executemany(query, entries)
+                await conn.execute("""
+                    CREATE INDEX date_index on rental_data(start_date, end_date);
+                    CREATE INDEX region_index on rental_data(most_specific_region_id);
+                """)
             except Exception as e:
                 print(e)
                 raise HTTPException(status_code=500, detail=f"Database error: {e}")

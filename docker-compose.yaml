@@ -23,6 +23,7 @@ services:
       POSTGRES_EXTRA_CONFIG: "shared_buffers=2GB"
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s

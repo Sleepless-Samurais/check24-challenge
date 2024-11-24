@@ -1,3 +1,6 @@
+## For Devpost:
+you can follow [this link](https://devpost.com/software/sleepless-24-7) to see our readme of explaining this project
+
 ## For local testing:
 Starting db:
 ```shell
@@ -15,3 +18,6 @@ poetry run fastapi dev main.py
 ```shell
 docker compose up --build
 ```
+
+## For GUI
+go to [GUI repo](https://github.com/Sleepless-Samurais/check24-challenge-GUI/tree/main) and follow the readme for more information

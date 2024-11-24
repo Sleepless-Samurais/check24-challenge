@@ -33,10 +33,10 @@ async def print_stats():
     if count and count % 500 == 0:
         print(f"Stats: {time_get=}, {time_post=}, {time_delete=}, {time_sql=}, {count=}")
     
-        global pool
-        async with pool.acquire() as conn:
-            rows = await conn.fetchrow("SELECT * FROM pg_stat_statements")
-            print(rows)
+        # global pool
+        # async with pool.acquire() as conn:
+        #     rows = await conn.fetchrow("SELECT * FROM pg_stat_statements")
+        #     print(rows)
 
 @app.on_event("startup")
 async def startup():

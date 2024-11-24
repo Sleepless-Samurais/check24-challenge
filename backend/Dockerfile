@@ -21,5 +21,5 @@ COPY . .
 EXPOSE 8000
 # gunicorn main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:80 --workers 4 --threads 2
 CMD ["python3", "init.py"]
-CMD ["gunicorn", "main:app", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "4"]
+CMD ["gunicorn", "main:app", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "16"]
 

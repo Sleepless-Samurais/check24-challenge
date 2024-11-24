@@ -39,14 +39,6 @@ async def startup():
 
     global pool
     pool = await asyncpg.create_pool(DATABASE_URL, min_size=5, max_size=20)
-
-    async with startup_lock:
-        global started
-        if not started:
-            started = True
-            async with pool.acquire() as conn:
-                # CREATE EXTENSION pg_stat_statements if not exists
-                await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_stat_statements")
     
     print("Lifespan started")
 

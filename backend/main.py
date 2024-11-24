@@ -240,8 +240,7 @@ async def get_offers(query: OfferRequest = Query()):
     ) AS result
     """
 
-    time_get += time.time() - start
-    start = time.time()
+    start_sql = time.time()
 
     global pool
     async with pool.acquire() as conn:
@@ -251,7 +250,8 @@ async def get_offers(query: OfferRequest = Query()):
             print(e)
             raise HTTPException(status_code=500, detail=f"Database error: {e}")
     
-    time_sql += time.time() - start
+    time_get += time.time() - start
+    time_sql += time.time() - start_sql
     count += 1
     print_stats()
 
@@ -302,8 +302,7 @@ async def create_offers(req: Request) -> None:
             for offer in offers["offers"]
         )
         
-        time_post += time.time() - start
-        start = time.time()
+        start_sql = time.time()
 
         global pool
         async with pool.acquire() as conn:
@@ -313,7 +312,8 @@ async def create_offers(req: Request) -> None:
                 print(e)
                 raise HTTPException(status_code=500, detail=f"Database error: {e}")
         
-        time_sql += time.time() - start
+        time_post += time.time() - start
+        time_sql += time.time() - start_sql
         count += 1
         print_stats()
 
@@ -325,8 +325,7 @@ async def cleanup() -> None:
 
     query = "DELETE FROM rental_data"
 
-    time_delete += time.time() - start
-    start = time.time()
+    start_sql = time.time()
 
     global pool
     async with pool.acquire() as conn:
@@ -336,6 +335,7 @@ async def cleanup() -> None:
             print(e)
             raise HTTPException(status_code=500, detail=f"Database error: {e}")
     
-    time_sql += time.time() - start
+    time_sql += time.time() - start_sql
+    time_delete += time.time() - start
     count += 1
     print_stats()

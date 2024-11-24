@@ -1,3 +1,4 @@
+import io
 import os
 from asyncio import Condition, Lock
 
@@ -23,7 +24,7 @@ pool: asyncpg.Pool | None = None
 async def startup():
     global pool
     # Initialize the connection pool during the application startup
-    pool = await asyncpg.create_pool(DATABASE_URL, min_size=5, max_size=20)
+    pool = await asyncpg.create_pool(DATABASE_URL, min_size=20, max_size=200)
 
 
 @app.on_event("shutdown")
@@ -243,8 +244,6 @@ async def create_offers(req: Request) -> None:
 
     async with lock:
 
-        offers = json.loads(await req.body())
-
         query = """
             INSERT INTO rental_data (
                 ID,
@@ -263,8 +262,11 @@ async def create_offers(req: Request) -> None:
             )
         """
 
-        entries = (
-            (
+        async def write_on_db(offer):
+
+            print(offer)
+
+            entry = (
                 offer["ID"],
                 offer["data"],
                 offer["mostSpecificRegionID"],
@@ -276,16 +278,41 @@ async def create_offers(req: Request) -> None:
                 offer["hasVollkasko"],
                 offer["freeKilometers"],
             )
-            for offer in offers["offers"]
-        )
 
-        global pool
-        async with pool.acquire() as conn:
-            try:
-                await conn.executemany(query, entries)
-            except Exception as e:
-                print(e)
-                raise HTTPException(status_code=500, detail=f"Database error: {e}")
+            global pool
+            async with pool.acquire() as conn:
+                try:
+                    await conn.execute(query, *entry)
+                except Exception as e:
+                    print(e)
+                    raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+        # starting
+        first = True
+        buffer = ""
+        async for chunk in req.stream():
+            if first:
+                buffer += chunk.decode()
+                try:
+                    idx = buffer.index("[")
+                    if len(buffer) > idx + 2:
+                        first = False
+                        buffer = buffer[idx + 1 :]
+                except ValueError:
+                    continue
+            else:
+                try:
+                    while True:
+                        entry, buffer = buffer.split("},", 1)
+                        await write_on_db(json.loads(entry + "}"))
+                except ValueError:
+                    continue
+        try:
+            while True:
+                entry, buffer = buffer.split("},", 1)
+                await write_on_db(json.loads(entry + "}"))
+        except ValueError:
+            pass
 
 
 @app.delete("/api/offers")

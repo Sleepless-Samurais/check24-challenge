@@ -167,7 +167,8 @@ async def get_offers(query: OfferRequest = Query()):
     CarTypeCounts AS (
         SELECT
             pct.car_type as car_type,
-            COALESCE(COUNT(p.car_type), 0) AS count
+            COALESCE(SUM(CASE WHEN p.car_type IS NOT NULL THEN 1 ELSE 0 END),
+                     0) AS count
         FROM PredefinedCarTypes pct
         LEFT JOIN Page p ON pct.car_type = p.car_type
         {where_clause("car_type")}

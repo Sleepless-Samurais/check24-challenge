@@ -1,4 +1,5 @@
 import os
+from asyncio import Condition, Lock
 
 import asyncpg  # type: ignore
 import orjson as json
@@ -12,6 +13,8 @@ with open("region_array.json", "rt") as fin:
     region_dict = json.loads(fin.read())
 
 app = FastAPI()
+lock = Lock()
+condition = Condition()
 
 pool: asyncpg.Pool | None = None
 
@@ -33,6 +36,9 @@ async def shutdown():
 
 @app.get("/api/offers")
 async def get_offers(query: OfferRequest = Query()):
+
+    async with condition:
+        await condition.wait_for(lambda: not lock.locked())
 
     filters: list[str] = []
 
@@ -213,48 +219,50 @@ async def get_offers(query: OfferRequest = Query()):
 @app.post("/api/offers")
 async def create_offers(req: Request) -> None:
 
-    offers = json.loads(await req.body())
+    async with lock:
 
-    query = """
-        INSERT INTO rental_data (
-            ID,
-            data,
-            most_specific_region_id,
-            start_date,
-            end_date,
-            number_seats,
-            price,
-            car_type,
-            has_vollkasko,
-            free_kilometers
-        ) VALUES (
-            $1, $2, $3, TO_TIMESTAMP($4), TO_TIMESTAMP($5), $6,
-            $7, $8, $9, $10
+        offers = json.loads(await req.body())
+
+        query = """
+            INSERT INTO rental_data (
+                ID,
+                data,
+                most_specific_region_id,
+                start_date,
+                end_date,
+                number_seats,
+                price,
+                car_type,
+                has_vollkasko,
+                free_kilometers
+            ) VALUES (
+                $1, $2, $3, TO_TIMESTAMP($4), TO_TIMESTAMP($5), $6,
+                $7, $8, $9, $10
+            )
+        """
+
+        entries = (
+            (
+                offer["ID"],
+                offer["data"],
+                offer["mostSpecificRegionID"],
+                offer["startDate"],
+                offer["endDate"],
+                offer["numberSeats"],
+                offer["price"],
+                offer["carType"],
+                offer["hasVollkasko"],
+                offer["freeKilometers"],
+            )
+            for offer in offers["offers"]
         )
-    """
 
-    entries = (
-        (
-            offer["ID"],
-            offer["data"],
-            offer["mostSpecificRegionID"],
-            offer["startDate"] / 1000,
-            offer["endDate"] / 1000,
-            offer["numberSeats"],
-            offer["price"],
-            offer["carType"],
-            offer["hasVollkasko"],
-            offer["freeKilometers"],
-        )
-        for offer in offers["offers"]
-    )
-
-    global pool
-    async with pool.acquire() as conn:
-        try:
-            await conn.executemany(query, entries)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Database error: {e}")
+        global pool
+        async with pool.acquire() as conn:
+            try:
+                await conn.executemany(query, entries)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
 
 @app.delete("/api/offers")

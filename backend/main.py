@@ -219,6 +219,7 @@ async def get_offers(query: OfferRequest = Query()):
     start_sql = time.time()
 
     global conn_pool
+    assert conn_pool
     async with conn_pool.connection() as conn:
         try:
             async with conn.cursor() as cur:
@@ -242,7 +243,7 @@ async def create_offers(req: Request) -> None:
 
     start = time.time()
 
-    offers = json.loads(req.body())
+    offers = json.loads(await req.body())
 
     query = """
         INSERT INTO rental_data (

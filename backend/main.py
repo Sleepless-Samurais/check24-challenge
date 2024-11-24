@@ -232,6 +232,7 @@ async def get_offers(query: OfferRequest = Query()):
         try:
             row = await conn.fetchrow(pg_query)
         except Exception as e:
+            print(e)
             raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
     return Response(content=row["result"], media_type="application/json")
@@ -283,6 +284,7 @@ async def create_offers(req: Request) -> None:
             try:
                 await conn.executemany(query, entries)
             except Exception as e:
+                print(e)
                 raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
 
@@ -295,4 +297,5 @@ async def cleanup() -> None:
         try:
             await conn.execute(query)
         except Exception as e:
+            print(e)
             raise HTTPException(status_code=500, detail=f"Database error: {e}")

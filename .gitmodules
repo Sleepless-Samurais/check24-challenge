@@ -1,0 +1,3 @@
+[submodule "check24-challenge-GUI"]
+	path = check24-challenge-GUI
+	url = https://github.com/Sleepless-Samurais/check24-challenge-GUI.git

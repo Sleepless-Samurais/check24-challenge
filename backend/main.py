@@ -73,7 +73,7 @@ async def get_offers(query: OfferRequest = Query()):
     )
 
     # Days
-    filters.append(f"(end_date - start_date) == INTERVAL '{query.numberDays} days'")
+    filters.append(f"(end_date - start_date) = INTERVAL '{query.numberDays} days'")
 
     # Num of seats
     if query.minNumberSeats:

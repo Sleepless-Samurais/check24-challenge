@@ -14,14 +14,13 @@ services:
   db:
     image: postgres
     container_name: postgres-db
-    command: -c config_file=/etc/postgresql/postgresql.conf
+    command: --config_file=/etc/postgresql/postgresql.conf
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
-      POSTGRES_EXTRA_CONFIG: "shared_buffers=2GB"
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - ./postgresql.conf:/etc/postgresql/postgresql.conf

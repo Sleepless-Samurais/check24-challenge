@@ -52,11 +52,11 @@ async def get_offers(query: OfferRequest = Query()):
     # Time
     filters.append(
         f"EXTRACT(EPOCH FROM start_date)\
-                   >= {query.timeRangeStart // 1000}"
+                   >= {query.timeRangeStart}"
     )
     filters.append(
         f"EXTRACT(EPOCH FROM end_date)\
-            <= {query.timeRangeEnd // 1000}"
+            <= {query.timeRangeEnd}"
     )
 
     # Days
@@ -238,8 +238,8 @@ async def create_offers(req: Request) -> None:
             offer["ID"],
             offer["data"],
             offer["mostSpecificRegionID"],
-            offer["startDate"] / 1000,
-            offer["endDate"] / 1000,
+            offer["startDate"],
+            offer["endDate"],
             offer["numberSeats"],
             offer["price"],
             offer["carType"],

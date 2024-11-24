@@ -1,3 +1,6 @@
+## For Devpost:
+you can follow [this link](https://devpost.com/software/sleepless-24-7) to see our readme of explaining this project
+
 ## For local testing:
 Starting db:
 ```shell

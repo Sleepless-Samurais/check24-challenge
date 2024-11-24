@@ -116,7 +116,7 @@ async def get_offers(query: OfferRequest = Query()):
     if query.sortOrder == "price-asc":
         order_clause = "ORDER BY price, id"
     else:
-        order_clause = "ORDER BY price DESC, id DESC"
+        order_clause = "ORDER BY price DESC, id"
 
     pg_query = f"""
     WITH Page AS (
@@ -227,7 +227,6 @@ async def get_offers(query: OfferRequest = Query()):
     """
 
     global pool
-    print(pg_query)
     async with pool.acquire() as conn:
         try:
             row = await conn.fetchrow(pg_query)

@@ -1,4 +1,5 @@
 import os
+import time
 from asyncio import Condition, Lock
 
 import asyncpg  # type: ignore
@@ -18,6 +19,16 @@ condition = Condition()
 
 pool: asyncpg.Pool | None = None
 
+time_get = 0
+time_post = 0
+time_delete = 0
+time_sql = 0
+count = 0
+
+def print_stats():
+    if count and count % 500 == 0:
+        print(f"Stats: {time_get=}, {time_post=}, {time_delete=}, {time_sql=}, {count=}")
+
 
 @app.on_event("startup")
 async def startup():
@@ -36,6 +47,8 @@ async def shutdown():
 
 @app.get("/api/offers")
 async def get_offers(query: OfferRequest = Query()):
+    global time_get, time_sql, count
+    start = time.time()
 
     async with condition:
         await condition.wait_for(lambda: not lock.locked())
@@ -227,6 +240,9 @@ async def get_offers(query: OfferRequest = Query()):
     ) AS result
     """
 
+    time_get += time.time() - start
+    start = time.time()
+
     global pool
     async with pool.acquire() as conn:
         try:
@@ -234,12 +250,19 @@ async def get_offers(query: OfferRequest = Query()):
         except Exception as e:
             print(e)
             raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    
+    time_sql += time.time() - start
+    count += 1
+    print_stats()
 
     return Response(content=row["result"], media_type="application/json")
 
 
 @app.post("/api/offers")
 async def create_offers(req: Request) -> None:
+    global time_post, time_sql, count
+
+    start = time.time()
 
     async with lock:
 
@@ -278,6 +301,9 @@ async def create_offers(req: Request) -> None:
             )
             for offer in offers["offers"]
         )
+        
+        time_post += time.time() - start
+        start = time.time()
 
         global pool
         async with pool.acquire() as conn:
@@ -286,11 +312,21 @@ async def create_offers(req: Request) -> None:
             except Exception as e:
                 print(e)
                 raise HTTPException(status_code=500, detail=f"Database error: {e}")
+        
+        time_sql += time.time() - start
+        count += 1
+        print_stats()
 
 
 @app.delete("/api/offers")
 async def cleanup() -> None:
+    global time_delete, time_sql, count
+    start = time.time()
+
     query = "DELETE FROM rental_data"
+
+    time_delete += time.time() - start
+    start = time.time()
 
     global pool
     async with pool.acquire() as conn:
@@ -299,3 +335,7 @@ async def cleanup() -> None:
         except Exception as e:
             print(e)
             raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    
+    time_sql += time.time() - start
+    count += 1
+    print_stats()

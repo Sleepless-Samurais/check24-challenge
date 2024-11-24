@@ -1,7 +1,6 @@
 import os
 import time
 from asyncio import Condition, Lock
-from contextlib import asynccontextmanager
 
 import asyncpg  # type: ignore
 import orjson as json
@@ -30,8 +29,8 @@ def print_stats():
     if count and count % 500 == 0:
         print(f"Stats: {time_get=}, {time_post=}, {time_delete=}, {time_sql=}, {count=}")
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+@app.on_event("startup")
+async def startup():
     print("Starting lifespan...")
 
     global pool
@@ -41,8 +40,10 @@ async def lifespan(app: FastAPI):
         await conn.execute("CREATE EXTENSION pg_stat_statements")
     
     print("Lifespan started")
-    yield
 
+
+@app.on_event("shutdown")
+async def shutdown():
     print("Closing lifespan...")
 
     async with pool.acquire() as conn:

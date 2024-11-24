@@ -217,7 +217,7 @@ async def get_offers(query: OfferRequest = Query()):
         json_build_object(
         'offers', COALESCE((SELECT json_agg(json_build_object('id', id, 'data', data)) FROM Offers), '[]'::json),
         'priceRanges', COALESCE((SELECT json_agg(PriceBuckets) FROM PriceBuckets), '[]'::json),
-        'carTypeCounts', COALESCE((SELECT json_object_agg(car_type, count) FROM CarTypeCounts), '[]'::json),
+        'carTypeCounts', (SELECT json_object_agg(car_type, count) FROM CarTypeCounts),
         'seatsCount', COALESCE((SELECT json_agg(SeatsCount) FROM SeatsCount), '[]'::json),
         'freeKilometerRange', COALESCE((SELECT json_agg(KilometerBuckets) FROM KilometerBuckets), '[]'::json),
         'vollkaskoCount', COALESCE(json_build_object(

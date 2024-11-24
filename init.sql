@@ -10,3 +10,6 @@ CREATE TABLE rental_data (
     has_vollkasko BOOLEAN NOT NULL,
     free_kilometers INTEGER NOT NULL
 );
+
+CREATE INDEX date_index on rental_data(start_date, end_date);
+CREATE INDEX region_index on rental_data(most_specific_region_id);

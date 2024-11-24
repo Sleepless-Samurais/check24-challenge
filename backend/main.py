@@ -88,7 +88,7 @@ async def get_offers(query: OfferRequest = Query()):
         if query.minPrice:
             tmp.append(f"price >= {query.minPrice}")
         if query.maxPrice:
-            tmp.append(f"price <= {query.maxPrice}")
+            tmp.append(f"price < {query.maxPrice}")
         optional_filters["price"] = " AND ".join(tmp)
 
     # car type
@@ -125,7 +125,6 @@ async def get_offers(query: OfferRequest = Query()):
     WITH Page AS (
         SELECT * FROM rental_data
         {filter_query}
-        {paging_query}
     ),
 
     Offers AS (
@@ -135,6 +134,7 @@ async def get_offers(query: OfferRequest = Query()):
         FROM Page
         {where_clause()}
         {order_clause}
+        {paging_query}
     ),
 
     PriceBuckets AS (
@@ -230,6 +230,7 @@ async def get_offers(query: OfferRequest = Query()):
     """
 
     global pool
+    print(pg_query)
     async with pool.acquire() as conn:
         try:
             row = await conn.fetchrow(pg_query)

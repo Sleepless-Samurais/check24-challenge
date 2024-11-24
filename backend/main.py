@@ -19,6 +19,10 @@ condition = Condition()
 
 pool: asyncpg.Pool | None = None
 
+startup_lock = Lock()
+started = False
+stopped = False
+
 time_get = 0
 time_post = 0
 time_delete = 0
@@ -36,8 +40,13 @@ async def startup():
     global pool
     pool = await asyncpg.create_pool(DATABASE_URL, min_size=5, max_size=20)
 
-    async with pool.acquire() as conn:
-        await conn.execute("CREATE EXTENSION pg_stat_statements")
+    async with startup_lock:
+        global started
+        if not started:
+            started = True
+            async with pool.acquire() as conn:
+                # CREATE EXTENSION pg_stat_statements if not exists
+                await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_stat_statements")
     
     print("Lifespan started")
 
@@ -46,9 +55,13 @@ async def startup():
 async def shutdown():
     print("Closing lifespan...")
 
-    async with pool.acquire() as conn:
-        rows = await conn.fetchrow("SELECT * FROM pg_stat_statements")
-        print(rows)
+    async with startup_lock:
+        global stopped
+        if not stopped:
+            stopped = True
+            async with pool.acquire() as conn:
+                rows = await conn.fetchrow("SELECT * FROM pg_stat_statements")
+                print(rows)
 
     if pool:
         await pool.close()

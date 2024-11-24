@@ -1,4 +1,3 @@
-version: "3"
 services:
   backend:
     build:
@@ -9,7 +8,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   db:
     image: postgres
@@ -23,5 +23,9 @@ services:
       POSTGRES_EXTRA_CONFIG: "shared_buffers=2GB"
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 

@@ -264,8 +264,6 @@ async def create_offers(req: Request) -> None:
 
         async def write_on_db(offer):
 
-            print(offer)
-
             entry = (
                 offer["ID"],
                 offer["data"],
@@ -311,6 +309,12 @@ async def create_offers(req: Request) -> None:
             while True:
                 entry, buffer = buffer.split("},", 1)
                 await write_on_db(json.loads(entry + "}"))
+        except ValueError:
+            pass
+
+        try:
+            entry, buffer = buffer.split("}", 1)
+            await write_on_db(json.loads(entry + "}"))
         except ValueError:
             pass
 

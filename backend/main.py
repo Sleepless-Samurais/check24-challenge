@@ -29,9 +29,14 @@ time_delete = 0
 time_sql = 0
 count = 0
 
-def print_stats():
+async def print_stats():
     if count and count % 500 == 0:
         print(f"Stats: {time_get=}, {time_post=}, {time_delete=}, {time_sql=}, {count=}")
+    
+        global pool
+        async with pool.acquire() as conn:
+            rows = await conn.fetchrow("SELECT * FROM pg_stat_statements")
+            print(rows)
 
 @app.on_event("startup")
 async def startup():
@@ -46,14 +51,6 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     print("Closing lifespan...")
-
-    async with startup_lock:
-        global stopped
-        if not stopped:
-            stopped = True
-            async with pool.acquire() as conn:
-                rows = await conn.fetchrow("SELECT * FROM pg_stat_statements")
-                print(rows)
 
     if pool:
         await pool.close()
@@ -268,7 +265,7 @@ async def get_offers(query: OfferRequest = Query()):
     time_get += time.time() - start
     time_sql += time.time() - start_sql
     count += 1
-    print_stats()
+    await print_stats()
 
     return Response(content=row["result"], media_type="application/json")
 
@@ -330,7 +327,7 @@ async def create_offers(req: Request) -> None:
         time_post += time.time() - start
         time_sql += time.time() - start_sql
         count += 1
-        print_stats()
+        await print_stats()
 
 
 @app.delete("/api/offers")
@@ -353,4 +350,4 @@ async def cleanup() -> None:
     time_sql += time.time() - start_sql
     time_delete += time.time() - start
     count += 1
-    print_stats()
+    await print_stats()

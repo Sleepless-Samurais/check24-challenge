@@ -12,3 +12,8 @@ CREATE TABLE rental_data (
 );
 
 CREATE INDEX date_index on rental_data(start_date, end_date);
+
+select sourcefile, name, sourceline, error from pg_file_settings where error is not null;
+
+SELECT pg_reload_conf();
+SELECT * FROM pg_file_settings WHERE applied IS FALSE;

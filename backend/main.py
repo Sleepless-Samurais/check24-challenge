@@ -263,25 +263,27 @@ async def create_offers(req: Request) -> None:
             )
         """
 
+        sem = asyncio.Semaphore(10)
         async def write_on_db(offer):
             global pool
-            async with pool.acquire() as conn:
-                try:
-                    await conn.execute(query,
-                        offer["ID"],
-                        offer["data"],
-                        offer["mostSpecificRegionID"],
-                        offer["startDate"] / 1000,
-                        offer["endDate"] / 1000,
-                        offer["numberSeats"],
-                        offer["price"],
-                        offer["carType"],
-                        offer["hasVollkasko"],
-                        offer["freeKilometers"]
-                    )
-                except Exception as e:
-                    print(e)
-                    raise HTTPException(status_code=500, detail=f"Database error: {e}")
+            async with sem:
+                async with pool.acquire() as conn:
+                    try:
+                        await conn.execute(query,
+                            offer["ID"],
+                            offer["data"],
+                            offer["mostSpecificRegionID"],
+                            offer["startDate"] / 1000,
+                            offer["endDate"] / 1000,
+                            offer["numberSeats"],
+                            offer["price"],
+                            offer["carType"],
+                            offer["hasVollkasko"],
+                            offer["freeKilometers"]
+                        )
+                    except Exception as e:
+                        print(e)
+                        raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
         # starting
         found_body = False

@@ -1,5 +1,6 @@
 import os
 import time
+import asyncio
 from asyncio import Condition, Lock
 
 import asyncpg  # type: ignore
@@ -43,7 +44,7 @@ async def startup():
     print("Starting lifespan...")
 
     global pool
-    pool = await asyncpg.create_pool(DATABASE_URL, min_size=20, max_size=40)
+    pool = await asyncpg.create_pool(DATABASE_URL, min_size=20, max_size=80)
     
     print("Lifespan started")
 
@@ -274,60 +275,83 @@ async def get_offers(query: OfferRequest = Query()):
 async def create_offers(req: Request) -> None:
     global time_post, time_sql, count
 
-    start = time.time()
+    query = """
+        INSERT INTO rental_data (
+            ID,
+            data,
+            most_specific_region_id,
+            start_date,
+            end_date,
+            number_seats,
+            price,
+            car_type,
+            has_vollkasko,
+            free_kilometers
+        ) VALUES (
+            $1, $2, $3, TO_TIMESTAMP($4), TO_TIMESTAMP($5), $6,
+            $7, $8, $9, $10
+        )
+    """
 
     async with lock:
 
-        offers = json.loads(await req.body())
+        async def write_on_db(offer):
+            global pool
+            async with pool.acquire() as conn:
+                try:
+                    await conn.execute(query,
+                        offer["ID"],
+                        offer["data"],
+                        offer["mostSpecificRegionID"],
+                        offer["startDate"] / 1000,
+                        offer["endDate"] / 1000,
+                        offer["numberSeats"],
+                        offer["price"],
+                        offer["carType"],
+                        offer["hasVollkasko"],
+                        offer["freeKilometers"]
+                    )
+                except Exception as e:
+                    print(e)
+                    raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
-        query = """
-            INSERT INTO rental_data (
-                ID,
-                data,
-                most_specific_region_id,
-                start_date,
-                end_date,
-                number_seats,
-                price,
-                car_type,
-                has_vollkasko,
-                free_kilometers
-            ) VALUES (
-                $1, $2, $3, TO_TIMESTAMP($4), TO_TIMESTAMP($5), $6,
-                $7, $8, $9, $10
-            )
-        """
-
-        entries = (
-            (
-                offer["ID"],
-                offer["data"],
-                offer["mostSpecificRegionID"],
-                offer["startDate"] / 1000,
-                offer["endDate"] / 1000,
-                offer["numberSeats"],
-                offer["price"],
-                offer["carType"],
-                offer["hasVollkasko"],
-                offer["freeKilometers"],
-            )
-            for offer in offers["offers"]
-        )
-        
-        start_sql = time.time()
-
-        global pool
-        async with pool.acquire() as conn:
-            try:
-                await conn.executemany(query, entries)
-            except Exception as e:
-                print(e)
-                raise HTTPException(status_code=500, detail=f"Database error: {e}")
-        
-        time_post += time.time() - start
-        time_sql += time.time() - start_sql
-        count += 1
-        await print_stats()
+        # starting
+        found_body = False
+        found_start = False
+        found_end = False
+        buffer = ""
+        async with asyncio.TaskGroup() as tg:
+            async for chunk in req.stream():
+                buffer += chunk.decode()
+                has_to_run = True
+                while has_to_run:
+                    if not found_body:
+                        if not "{" in buffer:
+                            has_to_run = False
+                            continue
+                        found_body = True
+                        idx = buffer.index("{")
+                        buffer = buffer[idx+1:]
+                    else:
+                        if not found_start:
+                            if not "{" in buffer:
+                                has_to_run = False
+                                continue
+                            found_start = True
+                            idx = buffer.index("{")
+                            buffer = buffer[idx:]
+                        elif not found_end:
+                            if not "}" in buffer:
+                                has_to_run = False
+                                continue
+                            found_end = True
+                            idx = buffer.index("}")
+                            tg.create_task(
+                                write_on_db(json.loads(buffer[:idx+1]))
+                            )
+                            buffer = buffer[idx+1:]
+                            found_start = False
+                            found_end = False
 
 
 @app.delete("/api/offers")

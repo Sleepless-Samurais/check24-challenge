@@ -25,7 +25,7 @@ pool: asyncpg.Pool | None = None
 async def startup():
     global pool
     # Initialize the connection pool during the application startup
-    pool = await asyncpg.create_pool(DATABASE_URL, min_size=20, max_size=200)
+    pool = await asyncpg.create_pool(DATABASE_URL, min_size=20, max_size=500)
 
 
 @app.on_event("shutdown")
@@ -263,27 +263,25 @@ async def create_offers(req: Request) -> None:
             )
         """
 
-        sem = asyncio.Semaphore(10)
         async def write_on_db(offer):
             global pool
-            async with sem:
-                async with pool.acquire() as conn:
-                    try:
-                        await conn.execute(query,
-                            offer["ID"],
-                            offer["data"],
-                            offer["mostSpecificRegionID"],
-                            offer["startDate"] / 1000,
-                            offer["endDate"] / 1000,
-                            offer["numberSeats"],
-                            offer["price"],
-                            offer["carType"],
-                            offer["hasVollkasko"],
-                            offer["freeKilometers"]
-                        )
-                    except Exception as e:
-                        print(e)
-                        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+            async with pool.acquire() as conn:
+                try:
+                    await conn.execute(query,
+                        offer["ID"],
+                        offer["data"],
+                        offer["mostSpecificRegionID"],
+                        offer["startDate"] / 1000,
+                        offer["endDate"] / 1000,
+                        offer["numberSeats"],
+                        offer["price"],
+                        offer["carType"],
+                        offer["hasVollkasko"],
+                        offer["freeKilometers"]
+                    )
+                except Exception as e:
+                    print(e)
+                    raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
         # starting
         found_body = False

@@ -1,5 +1,6 @@
 import io
 import os
+import asyncio
 from asyncio import Condition, Lock
 
 import asyncpg  # type: ignore
@@ -288,35 +289,38 @@ async def create_offers(req: Request) -> None:
         found_start = False
         found_end = False
         buffer = ""
-        async for chunk in req.stream():
-            buffer += chunk.decode()
-            has_to_run = True
-            while has_to_run:
-                if not found_body:
-                    if not "{" in buffer:
-                        has_to_run = False
-                        continue
-                    found_body = True
-                    idx = buffer.index("{")
-                    buffer = buffer[idx+1:]
-                else:
-                    if not found_start:
+        async with asyncio.TaskGroup() as tg:
+            async for chunk in req.stream():
+                buffer += chunk.decode()
+                has_to_run = True
+                while has_to_run:
+                    if not found_body:
                         if not "{" in buffer:
                             has_to_run = False
                             continue
-                        found_start = True
+                        found_body = True
                         idx = buffer.index("{")
-                        buffer = buffer[idx:]
-                    elif not found_end:
-                        if not "}" in buffer:
-                            has_to_run = False
-                            continue
-                        found_end = True
-                        idx = buffer.index("}")
-                        await write_on_db(json.loads(buffer[:idx+1]))
                         buffer = buffer[idx+1:]
-                        found_start = False
-                        found_end = False
+                    else:
+                        if not found_start:
+                            if not "{" in buffer:
+                                has_to_run = False
+                                continue
+                            found_start = True
+                            idx = buffer.index("{")
+                            buffer = buffer[idx:]
+                        elif not found_end:
+                            if not "}" in buffer:
+                                has_to_run = False
+                                continue
+                            found_end = True
+                            idx = buffer.index("}")
+                            tg.create_task(
+                                write_on_db(json.loads(buffer[:idx+1]))
+                            )
+                            buffer = buffer[idx+1:]
+                            found_start = False
+                            found_end = False
 
 
 @app.delete("/api/offers")

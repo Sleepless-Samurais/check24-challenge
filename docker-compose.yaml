@@ -14,6 +14,7 @@ services:
   db:
     image: postgres
     container_name: postgres-db
+    command: --config_file=/etc/postgresql/postgresql.conf
     ports:
       - "5432:5432"
     environment:

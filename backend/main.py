@@ -44,7 +44,7 @@ async def startup():
     print("Starting lifespan...")
 
     global pool
-    pool = await asyncpg.create_pool(DATABASE_URL, min_size=20, max_size=80)
+    pool = await asyncpg.create_pool(DATABASE_URL, min_size=20, max_size=40)
     
     print("Lifespan started")
 

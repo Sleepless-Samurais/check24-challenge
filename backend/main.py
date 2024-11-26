@@ -264,7 +264,6 @@ async def create_offers(req: Request) -> None:
         """
 
         async def write_on_db(offer):
-            print(offer["ID"])
             global pool
             async with pool.acquire() as conn:
                 try:

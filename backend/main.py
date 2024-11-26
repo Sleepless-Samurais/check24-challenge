@@ -286,25 +286,35 @@ async def create_offers(req: Request) -> None:
                     raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
         # starting
-        first = True
+        found_body = False
+        found_start = False
+        found_end = False
         buffer = ""
         async for chunk in req.stream():
-            if first:
-                buffer += chunk.decode()
-                try:
-                    idx = buffer.index("[")
-                    if len(buffer) > idx + 2:
-                        first = False
-                        buffer = buffer[idx + 1 :]
-                except ValueError:
+            buffer += chunk.decode()
+            if not found_body:
+                if not "{" in buffer:
                     continue
+                found_body = True
+                idx = buffer.index("{")
+                buffer = buffer[idx+1:]
             else:
-                try:
-                    while True:
-                        entry, buffer = buffer.split("},", 1)
-                        await write_on_db(json.loads(entry + "}"))
-                except ValueError:
-                    continue
+                if not found_start:
+                    if not "{" in buffer:
+                        continue
+                    found_start = True
+                    idx = buffer.index("{")
+                    buffer = buffer[idx:]
+                elif not found_end:
+                    if not "}" in buffer:
+                        continue
+                    found_end = True
+                    idx = buffer.index("}")
+                    buffer = buffer[:idx+1]
+                    await write_on_db(json.loads(buffer))
+                    buffer = buffer[idx+1:]
+                    found_start = False
+                    found_end = False
         try:
             while True:
                 entry, buffer = buffer.split("},", 1)

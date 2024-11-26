@@ -25,7 +25,7 @@ pool: asyncpg.Pool | None = None
 async def startup():
     global pool
     # Initialize the connection pool during the application startup
-    pool = await asyncpg.create_pool(DATABASE_URL, min_size=20, max_size=100)
+    pool = await asyncpg.create_pool(DATABASE_URL, min_size=20, max_size=50)
 
 
 @app.on_event("shutdown")

@@ -310,23 +310,10 @@ async def create_offers(req: Request) -> None:
                         continue
                     found_end = True
                     idx = buffer.index("}")
-                    buffer = buffer[:idx+1]
-                    await write_on_db(json.loads(buffer))
+                    await write_on_db(json.loads(buffer[:idx+1]))
                     buffer = buffer[idx+1:]
                     found_start = False
                     found_end = False
-        try:
-            while True:
-                entry, buffer = buffer.split("},", 1)
-                await write_on_db(json.loads(entry + "}"))
-        except ValueError:
-            pass
-
-        try:
-            entry, buffer = buffer.split("}", 1)
-            await write_on_db(json.loads(entry + "}"))
-        except ValueError:
-            pass
 
 
 @app.delete("/api/offers")

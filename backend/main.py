@@ -263,24 +263,22 @@ async def create_offers(req: Request) -> None:
         """
 
         async def write_on_db(offer):
-
-            entry = (
-                offer["ID"],
-                offer["data"],
-                offer["mostSpecificRegionID"],
-                offer["startDate"] / 1000,
-                offer["endDate"] / 1000,
-                offer["numberSeats"],
-                offer["price"],
-                offer["carType"],
-                offer["hasVollkasko"],
-                offer["freeKilometers"],
-            )
-
+            print(offer["ID"])
             global pool
             async with pool.acquire() as conn:
                 try:
-                    await conn.execute(query, *entry)
+                    await conn.execute(query,
+                        offer["ID"],
+                        offer["data"],
+                        offer["mostSpecificRegionID"],
+                        offer["startDate"] / 1000,
+                        offer["endDate"] / 1000,
+                        offer["numberSeats"],
+                        offer["price"],
+                        offer["carType"],
+                        offer["hasVollkasko"],
+                        offer["freeKilometers"]
+                    )
                 except Exception as e:
                     print(e)
                     raise HTTPException(status_code=500, detail=f"Database error: {e}")
@@ -292,28 +290,33 @@ async def create_offers(req: Request) -> None:
         buffer = ""
         async for chunk in req.stream():
             buffer += chunk.decode()
-            if not found_body:
-                if not "{" in buffer:
-                    continue
-                found_body = True
-                idx = buffer.index("{")
-                buffer = buffer[idx+1:]
-            else:
-                if not found_start:
+            has_to_run = True
+            while has_to_run:
+                if not found_body:
                     if not "{" in buffer:
+                        has_to_run = False
                         continue
-                    found_start = True
+                    found_body = True
                     idx = buffer.index("{")
-                    buffer = buffer[idx:]
-                elif not found_end:
-                    if not "}" in buffer:
-                        continue
-                    found_end = True
-                    idx = buffer.index("}")
-                    await write_on_db(json.loads(buffer[:idx+1]))
                     buffer = buffer[idx+1:]
-                    found_start = False
-                    found_end = False
+                else:
+                    if not found_start:
+                        if not "{" in buffer:
+                            has_to_run = False
+                            continue
+                        found_start = True
+                        idx = buffer.index("{")
+                        buffer = buffer[idx:]
+                    elif not found_end:
+                        if not "}" in buffer:
+                            has_to_run = False
+                            continue
+                        found_end = True
+                        idx = buffer.index("}")
+                        await write_on_db(json.loads(buffer[:idx+1]))
+                        buffer = buffer[idx+1:]
+                        found_start = False
+                        found_end = False
 
 
 @app.delete("/api/offers")
